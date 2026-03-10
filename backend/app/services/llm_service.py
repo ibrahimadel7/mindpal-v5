@@ -85,13 +85,11 @@ class LLMService:
             raise ValueError(f"LLM returned invalid JSON: {raw}") from exc
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        payload = {"model": self.settings.groq_embedding_model, "input": texts}
-        try:
-            data = await self._request_with_retries("POST", "/embeddings", payload)
-            return [item["embedding"] for item in data["data"]]
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Falling back to local deterministic embeddings: %s", exc)
-            return [self._fallback_embedding(text) for text in texts]
+        """Generate deterministic embeddings using SHA-256 hash-based method.
+        
+        Note: Using local embeddings instead of external API for cost efficiency.
+        """
+        return [self._fallback_embedding(text) for text in texts]
 
     @staticmethod
     def _fallback_embedding(text: str, dims: int = 256) -> list[float]:
