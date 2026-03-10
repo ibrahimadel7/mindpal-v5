@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+.eggs/
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local runtime/generated artifacts
+backend/chroma_data/
+*.sqlite3
+*.db
+mindpal_graph.json
+*.log
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Poetry & packaging tools
+poetry.lock
+Pipfile.lock

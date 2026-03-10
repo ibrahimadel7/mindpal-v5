@@ -1,0 +1,1 @@
+"""MindPal backend application package."""
