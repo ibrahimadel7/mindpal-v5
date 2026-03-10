@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import httpx
@@ -18,14 +19,16 @@ class LLMService:
         self.settings = get_settings()
         self.base_url = "https://api.groq.com/openai/v1"
 
-    async def _request_with_retries(self, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _headers(self) -> dict[str, str]:
         if not self.settings.groq_api_key:
             raise RuntimeError("GROQ_API_KEY is not configured")
-
-        headers = {
+        return {
             "Authorization": f"Bearer {self.settings.groq_api_key}",
             "Content-Type": "application/json",
         }
+
+    async def _request_with_retries(self, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        headers = self._headers()
 
         last_err: Exception | None = None
         for attempt in range(1, self.settings.llm_max_retries + 1):
@@ -58,6 +61,74 @@ class LLMService:
         }
         data = await self._request_with_retries("POST", "/chat/completions", payload)
         return data["choices"][0]["message"]["content"].strip()
+
+    async def stream_chat_tokens(
+        self,
+        prompt: str,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Yield assistant text deltas from Groq's OpenAI-compatible streaming API.
+
+        Streaming improves perceived latency because the UI can render tokens immediately
+        rather than waiting for a full completion payload.
+        """
+        payload = {
+            "model": self.settings.groq_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": self.settings.llm_temperature if temperature is None else temperature,
+            "max_tokens": self.settings.llm_max_tokens if max_tokens is None else max_tokens,
+            "stream": True,
+        }
+
+        headers = self._headers()
+        timeout = httpx.Timeout(self.settings.llm_timeout_seconds, read=self.settings.llm_timeout_seconds)
+
+        last_err: Exception | None = None
+        for attempt in range(1, self.settings.llm_max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    async with client.stream(
+                        "POST",
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                    ) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            if not line or not line.startswith("data:"):
+                                continue
+
+                            data = line[len("data:") :].strip()
+                            if data == "[DONE]":
+                                return
+
+                            try:
+                                parsed = json.loads(data)
+                            except json.JSONDecodeError:
+                                logger.debug("Skipping non-JSON stream frame: %s", data)
+                                continue
+
+                            for choice in parsed.get("choices", []):
+                                delta = choice.get("delta", {})
+                                token = delta.get("content")
+                                if token:
+                                    yield token
+                return
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                logger.warning(
+                    "Groq streaming request failed on attempt %s/%s: %s",
+                    attempt,
+                    self.settings.llm_max_retries,
+                    exc,
+                )
+                if attempt < self.settings.llm_max_retries:
+                    await asyncio.sleep(2 ** (attempt - 1))
+
+        assert last_err is not None
+        raise last_err
 
     async def generate_structured_json(
         self,

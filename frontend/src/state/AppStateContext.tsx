@@ -13,7 +13,7 @@ import {
   getEmotionInsights,
   getHabitInsights,
   getTimeInsights,
-  sendChat,
+  streamChat,
 } from '../services/api'
 import type { Conversation, InsightsBundle, Message } from '../types/api'
 import { AppStateContext, type AppState } from './AppStateStore'
@@ -29,10 +29,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [messagesByConversation, setMessagesByConversation] = useState<Record<number, Message[]>>({})
+  const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null)
   const [insights, setInsights] = useState<InsightsBundle>({ emotions: [], habits: [], timePatterns: [] })
   const [isInitializing, setIsInitializing] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [isLoadingInsights, setIsLoadingInsights] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const loadConversationMessages = useCallback(async (conversationId: number) => {
@@ -101,9 +103,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const removeConversation = useCallback(
     async (id: number) => {
       setError(null)
+      setIsDeleting(true)
       try {
         await deleteConversationApi(id)
-        setConversations((prev) => prev.filter((item) => item.id !== id))
+        const refreshed = sortConversations(await getConversations(USER_ID))
+        setConversations(refreshed)
         setMessagesByConversation((prev) => {
           const rest = Object.fromEntries(Object.entries(prev).filter(([key]) => Number(key) !== id)) as Record<
             number,
@@ -113,15 +117,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         })
 
         if (currentConversationId === id) {
-          const remaining = conversations.filter((item) => item.id !== id)
-          const nextId = remaining[0]?.id ?? null
+          const nextId = refreshed[0]?.id ?? null
           await selectConversation(nextId)
         }
+
+        const [emotions, habits, timePatterns] = await Promise.all([
+          getEmotionInsights(USER_ID),
+          getHabitInsights(USER_ID),
+          getTimeInsights(USER_ID),
+        ])
+        setInsights({ emotions, habits, timePatterns })
       } catch {
         setError('Could not delete this reflection.')
+      } finally {
+        setIsDeleting(false)
       }
     },
-    [conversations, currentConversationId, selectConversation],
+    [currentConversationId, selectConversation],
   )
 
   const sendMessage = useCallback(
@@ -161,29 +173,85 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       setIsSending(true)
       setError(null)
+      let tempAssistantId: number | null = null
 
       try {
-        const response = await sendChat({
-          user_id: USER_ID,
+        tempAssistantId = -Date.now()
+        const assistantDraft: Message = {
+          id: tempAssistantId,
           conversation_id: conversationId,
-          message: content,
-        })
-
-        const assistantMessage: Message = {
-          id: response.assistant_message_id,
-          conversation_id: response.conversation_id,
           role: 'assistant',
-          content: response.response,
-          timestamp: response.timestamp,
+          content: '',
+          timestamp: new Date().toISOString(),
         }
 
         setMessagesByConversation((prev) => ({
           ...prev,
-          [conversationId]: [...(prev[conversationId] ?? []), assistantMessage],
+          [conversationId]: [...(prev[conversationId] ?? []), assistantDraft],
         }))
+        setStreamingMessageId(tempAssistantId)
+
+        // We stream tokens to reduce perceived latency and make the UI feel responsive.
+        await streamChat(
+          {
+            user_id: USER_ID,
+            conversation_id: conversationId,
+            message: content,
+          },
+          {
+            onToken: (token) => {
+              setMessagesByConversation((prev) => ({
+                ...prev,
+                [conversationId]: (prev[conversationId] ?? []).map((message) =>
+                  message.id === tempAssistantId ? { ...message, content: `${message.content}${token}` } : message,
+                ),
+              }))
+            },
+            onDone: (payload) => {
+              setMessagesByConversation((prev) => ({
+                ...prev,
+                [conversationId]: (prev[conversationId] ?? []).map((message) =>
+                  message.id === tempAssistantId
+                    ? {
+                        ...message,
+                        id: payload.assistant_message_id,
+                        timestamp: payload.timestamp,
+                      }
+                    : message,
+                ),
+              }))
+            },
+            onError: (payload) => {
+              if (typeof payload.assistant_message_id === 'number' && typeof payload.timestamp === 'string') {
+                const persistedId = payload.assistant_message_id
+                const persistedTimestamp = payload.timestamp
+                setMessagesByConversation((prev) => ({
+                  ...prev,
+                  [conversationId]: (prev[conversationId] ?? []).map((message) =>
+                    message.id === tempAssistantId
+                      ? {
+                          ...message,
+                          id: persistedId,
+                          timestamp: persistedTimestamp,
+                        }
+                      : message,
+                  ),
+                }))
+              }
+              setError(payload.message ?? 'The response stream was interrupted. Partial output was saved.')
+            },
+          },
+        )
       } catch {
         setError('Your reflection could not be sent. Please try again.')
+        if (tempAssistantId !== null) {
+          setMessagesByConversation((prev) => ({
+            ...prev,
+            [conversationId]: (prev[conversationId] ?? []).filter((message) => message.id !== tempAssistantId),
+          }))
+        }
       } finally {
+        setStreamingMessageId(null)
         setIsSending(false)
       }
     },
@@ -213,10 +281,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       conversations,
       currentConversationId,
       messagesByConversation,
+      streamingMessageId,
       insights,
       isInitializing,
       isSending,
       isLoadingInsights,
+      isDeleting,
       error,
       initialize,
       selectConversation,
@@ -229,10 +299,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       conversations,
       currentConversationId,
       messagesByConversation,
+      streamingMessageId,
       insights,
       isInitializing,
       isSending,
       isLoadingInsights,
+      isDeleting,
       error,
       initialize,
       selectConversation,

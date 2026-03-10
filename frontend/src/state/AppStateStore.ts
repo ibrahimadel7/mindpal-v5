@@ -6,10 +6,12 @@ export interface AppState {
   conversations: Conversation[]
   currentConversationId: number | null
   messagesByConversation: Record<number, Message[]>
+  streamingMessageId: number | null
   insights: InsightsBundle
   isInitializing: boolean
   isSending: boolean
   isLoadingInsights: boolean
+  isDeleting: boolean
   error: string | null
   initialize: () => Promise<void>
   selectConversation: (id: number | null) => Promise<void>

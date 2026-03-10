@@ -13,6 +13,7 @@ develop-eggs/
 .eggs/
 *.egg-info/
 dist/
+node_modules/
 .pytest_cache/
 .mypy_cache/
 .coverage

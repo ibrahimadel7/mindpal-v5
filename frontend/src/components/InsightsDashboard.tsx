@@ -12,7 +12,11 @@ import {
 } from 'recharts'
 import { useAppState } from '../state/useAppState'
 
-export default function InsightsDashboard() {
+interface InsightsDashboardProps {
+  onOpenNavigation?: () => void
+}
+
+export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboardProps) {
   const { insights, fetchInsights, isLoadingInsights } = useAppState()
 
   useEffect(() => {
@@ -23,6 +27,20 @@ export default function InsightsDashboard() {
     <section className="h-full overflow-y-auto px-6 py-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
         <header>
+          {onOpenNavigation ? (
+            <button
+              type="button"
+              onClick={onOpenNavigation}
+              className="subtle-icon-button mb-3"
+              aria-label="Open sidebar"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
+                <path d="M4 7h16" strokeLinecap="round" />
+                <path d="M4 12h16" strokeLinecap="round" />
+                <path d="M4 17h16" strokeLinecap="round" />
+              </svg>
+            </button>
+          ) : null}
           <h1 className="font-heading text-4xl text-ink-900">Insights</h1>
           <p className="mt-1 text-sm text-ink-700">Gentle patterns from your reflections over time.</p>
         </header>

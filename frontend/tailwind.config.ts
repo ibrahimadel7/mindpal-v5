@@ -31,11 +31,11 @@ const config: Config = {
         },
       },
       fontFamily: {
-        heading: ['Cormorant Garamond', 'serif'],
-        body: ['Nunito Sans', 'sans-serif'],
+        heading: ['Fraunces', 'serif'],
+        body: ['Plus Jakarta Sans', 'sans-serif'],
       },
       boxShadow: {
-        soft: '0 10px 30px -16px rgba(63, 54, 47, 0.28)',
+        soft: '0 16px 36px -26px rgba(63, 54, 47, 0.42)',
       },
       borderRadius: {
         soft: '1rem',
@@ -49,6 +49,7 @@ const config: Config = {
       },
       animation: {
         rise: 'rise 320ms ease-out forwards',
+        'rise-delayed': 'rise 420ms ease-out forwards',
       },
     },
   },

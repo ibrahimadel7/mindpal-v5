@@ -4,29 +4,30 @@ interface ReflectionListProps {
   reflections: Conversation[]
   activeId: number | null
   onSelect: (id: number) => void
-  onDelete: (id: number) => void
+  onDelete: (id: number) => Promise<void>
+  isDeleting?: boolean
 }
 
-export default function ReflectionList({ reflections, activeId, onSelect, onDelete }: ReflectionListProps) {
+export default function ReflectionList({ reflections, activeId, onSelect, onDelete, isDeleting = false }: ReflectionListProps) {
   if (!reflections.length) {
     return (
-      <p className="rounded-soft border border-dashed border-clay-200 bg-sand-50 p-4 text-sm leading-relaxed text-ink-700">
+      <p className="rounded-soft border border-dashed border-clay-200 bg-white/70 p-4 text-sm leading-relaxed text-ink-700">
         No reflections yet. Start your first reflection above.
       </p>
     )
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2.5">
       {reflections.map((reflection) => {
         const isActive = reflection.id === activeId
         return (
           <li key={reflection.id}>
             <div
-              className={`group flex items-center gap-2 rounded-soft border px-3 py-2 transition ${
+              className={`group flex items-center gap-2 rounded-soft border px-3 py-2.5 transition ${
                 isActive
-                  ? 'border-clay-300 bg-clay-100 text-ink-900'
-                  : 'border-transparent bg-white/70 text-ink-800 hover:border-clay-200 hover:bg-white'
+                  ? 'border-clay-300 bg-clay-100 text-ink-900 shadow-[0_10px_24px_-22px_rgba(63,54,47,0.72)]'
+                  : 'border-transparent bg-white/72 text-ink-800 hover:border-clay-200 hover:bg-white'
               }`}
             >
               <button type="button" onClick={() => onSelect(reflection.id)} className="min-w-0 flex-1 text-left">
@@ -35,11 +36,14 @@ export default function ReflectionList({ reflections, activeId, onSelect, onDele
               </button>
               <button
                 type="button"
-                onClick={() => onDelete(reflection.id)}
-                className="rounded-full px-2 py-1 text-xs text-ink-700 opacity-0 transition hover:bg-sand-100 hover:text-ink-900 group-hover:opacity-100"
+                onClick={() => {
+                  void onDelete(reflection.id)
+                }}
+                disabled={isDeleting}
+                className="rounded-full border border-clay-200/70 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-700 opacity-100 transition hover:border-clay-300 hover:text-ink-900 md:opacity-0 md:group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Delete reflection"
               >
-                Delete
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </li>

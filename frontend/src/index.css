@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Nunito+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,13 +7,14 @@
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  font-family: 'Nunito Sans', sans-serif;
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   color: #3f362f;
   background: #f8f4ef;
   -webkit-font-smoothing: antialiased;
@@ -22,4 +23,10 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+@layer components {
+  .subtle-icon-button {
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-clay-200/75 bg-white/70 text-ink-700/85 transition-colors duration-200 hover:border-clay-300 hover:bg-white hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 focus-visible:ring-offset-2;
+  }
 }

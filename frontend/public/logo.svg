@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Warm cream background -->
+  <rect width="200" height="200" fill="#f2e8d6"/>
+
+  <!-- Head profile silhouette — facing left -->
+  <path fill="#8B5C38" d="
+    M 85,18
+    C 110,14 148,28 162,58
+    C 170,76 168,96 160,114
+    C 154,128 148,138 143,148
+    L 120,158 L 82,158
+    C 68,152 56,142 50,130
+    C 44,118 40,108 38,100
+    C 36,92 36,84 38,78
+    C 38,72 40,66 40,60
+    C 38,54 30,46 28,38
+    C 30,30 36,23 46,20
+    C 58,16 72,16 85,18
+    Z
+  "/>
+
+  <!-- Brain — cream/tan, inside upper-back of skull -->
+  <path fill="#dfc9a4" d="
+    M 96,26
+    C 116,22 150,34 160,56
+    C 166,70 163,88 154,100
+    C 146,110 132,117 117,115
+    C 103,113 90,105 84,91
+    C 78,77 80,60 89,48
+    C 92,42 92,28 96,26
+    Z
+  "/>
+
+  <!-- Brain left-lobe convolutions -->
+  <path fill="none" stroke="#8B5C38" stroke-width="2.2" stroke-linecap="round" d="
+    M 92,48 C 86,40 92,32 100,36 C 108,40 106,50 100,54
+    C 94,58 90,66 94,74 C 98,82 108,84 112,80
+  "/>
+  <path fill="none" stroke="#8B5C38" stroke-width="2.2" stroke-linecap="round" d="
+    M 88,78 C 84,88 88,98 97,99 C 104,100 109,95 107,102
+  "/>
+
+  <!-- Brain right-lobe convolutions -->
+  <path fill="none" stroke="#8B5C38" stroke-width="2.2" stroke-linecap="round" d="
+    M 116,28 C 130,24 147,33 149,49 C 151,62 144,72 136,76
+    C 128,80 122,84 124,92 C 126,100 137,102 141,97
+  "/>
+  <path fill="none" stroke="#8B5C38" stroke-width="2.2" stroke-linecap="round" d="
+    M 145,67 C 155,70 161,80 158,91 C 156,99 148,104 142,101
+  "/>
+
+  <!-- Interhemispheric fissure -->
+  <path fill="none" stroke="#8B5C38" stroke-width="1.5" stroke-linecap="round" opacity="0.5" d="
+    M 118,28 C 118,52 117,76 116,107
+  "/>
+</svg>
