@@ -4,8 +4,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db_session
 from app.models.conversation import Conversation
+from app.models.message import Message
 from app.models.user import User
-from app.schemas.conversation import ConversationListResponse, ConversationResponse, CreateConversationRequest
+from app.schemas.conversation import (
+    ConversationListResponse,
+    ConversationMessagesResponse,
+    ConversationResponse,
+    CreateConversationRequest,
+    MessageResponse,
+)
 
 router = APIRouter(tags=["conversations"])
 
@@ -35,6 +42,36 @@ async def create_conversation(
     await db.commit()
     await db.refresh(convo)
     return ConversationResponse.model_validate(convo, from_attributes=True)
+
+
+@router.get("/conversations/{id}/messages", response_model=ConversationMessagesResponse)
+async def list_conversation_messages(
+    id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db_session),
+) -> ConversationMessagesResponse:
+    conversation = (
+        await db.execute(select(Conversation).where(Conversation.id == id, Conversation.user_id == user_id))
+    ).scalar_one_or_none()
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found for this user")
+
+    messages = (
+        await db.execute(select(Message).where(Message.conversation_id == id).order_by(Message.timestamp.asc(), Message.id.asc()))
+    ).scalars().all()
+
+    return ConversationMessagesResponse(
+        messages=[
+            MessageResponse(
+                id=message.id,
+                conversation_id=message.conversation_id,
+                role=message.role.value,
+                content=message.content,
+                timestamp=message.timestamp,
+            )
+            for message in messages
+        ]
+    )
 
 
 @router.delete("/conversations/{id}", status_code=status.HTTP_204_NO_CONTENT)

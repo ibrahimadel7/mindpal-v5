@@ -17,3 +17,15 @@ class ConversationResponse(BaseModel):
 
 class ConversationListResponse(BaseModel):
     conversations: list[ConversationResponse]
+
+
+class MessageResponse(BaseModel):
+    id: int
+    conversation_id: int
+    role: str
+    content: str
+    timestamp: datetime
+
+
+class ConversationMessagesResponse(BaseModel):
+    messages: list[MessageResponse]

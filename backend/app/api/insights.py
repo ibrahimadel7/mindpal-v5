@@ -10,28 +10,28 @@ analytics = TimePatternAnalytics()
 
 
 @router.get("/emotions", response_model=list[EmotionInsight])
-async def insights_emotions(conversation_id: int | None = None, db: AsyncSession = Depends(get_db_session)) -> list[EmotionInsight]:
-    rows = await analytics.emotion_stats(db, conversation_id=conversation_id)
+async def insights_emotions(user_id: int, db: AsyncSession = Depends(get_db_session)) -> list[EmotionInsight]:
+    rows = await analytics.emotion_stats(db, user_id=user_id)
     return [EmotionInsight.model_validate(item) for item in rows]
 
 
 @router.get("/habits", response_model=list[HabitInsight])
-async def insights_habits(conversation_id: int | None = None, db: AsyncSession = Depends(get_db_session)) -> list[HabitInsight]:
-    rows = await analytics.habit_stats(db, conversation_id=conversation_id)
+async def insights_habits(user_id: int, db: AsyncSession = Depends(get_db_session)) -> list[HabitInsight]:
+    rows = await analytics.habit_stats(db, user_id=user_id)
     return [HabitInsight.model_validate(item) for item in rows]
 
 
 @router.get("/time", response_model=list[TimePatternInsight])
-async def insights_time(conversation_id: int | None = None, db: AsyncSession = Depends(get_db_session)) -> list[TimePatternInsight]:
-    rows = await analytics.time_patterns(db, conversation_id=conversation_id)
+async def insights_time(user_id: int, db: AsyncSession = Depends(get_db_session)) -> list[TimePatternInsight]:
+    rows = await analytics.time_patterns(db, user_id=user_id)
     return [TimePatternInsight.model_validate(item) for item in rows]
 
 
 @router.get("/summary", response_model=SummaryInsight)
-async def insights_summary(conversation_id: int | None = None, db: AsyncSession = Depends(get_db_session)) -> SummaryInsight:
-    emotions = await analytics.emotion_stats(db, conversation_id=conversation_id)
-    habits = await analytics.habit_stats(db, conversation_id=conversation_id)
-    time_rows = await analytics.time_patterns(db, conversation_id=conversation_id)
+async def insights_summary(user_id: int, db: AsyncSession = Depends(get_db_session)) -> SummaryInsight:
+    emotions = await analytics.emotion_stats(db, user_id=user_id)
+    habits = await analytics.habit_stats(db, user_id=user_id)
+    time_rows = await analytics.time_patterns(db, user_id=user_id)
     return SummaryInsight(
         emotion_stats=[EmotionInsight.model_validate(item) for item in emotions],
         habit_stats=[HabitInsight.model_validate(item) for item in habits],

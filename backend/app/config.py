@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     retrieval_top_k_messages: int = 5
     retrieval_top_k_kb: int = 3
 
+    cors_origins: str = Field(default="http://localhost:5173", alias="CORS_ORIGINS")
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

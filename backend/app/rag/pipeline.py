@@ -82,9 +82,9 @@ class RAGPipeline:
         # 8-10. retrieve similar + kb + insights
         similar_messages = await self.vector.search_similar_messages(user_text, self.settings.retrieval_top_k_messages)
         kb_docs = await self.vector.search_knowledge(user_text, self.settings.retrieval_top_k_kb)
-        emotion_stats = await self.analytics.emotion_stats(db, conversation_id=conversation_id)
-        habit_stats = await self.analytics.habit_stats(db, conversation_id=conversation_id)
-        time_patterns = await self.analytics.time_patterns(db, conversation_id=conversation_id)
+        emotion_stats = await self.analytics.emotion_stats(db, user_id=user_id)
+        habit_stats = await self.analytics.habit_stats(db, user_id=user_id)
+        time_patterns = await self.analytics.time_patterns(db, user_id=user_id)
 
         # 11. conversation history
         history_rows = (

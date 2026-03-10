@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.message_analysis import MessageAnalysis
 
@@ -12,10 +13,13 @@ from app.models.message_analysis import MessageAnalysis
 class TimePatternAnalytics:
     """Temporal analytics for emotions and habits."""
 
-    async def emotion_stats(self, db: AsyncSession, conversation_id: int | None = None) -> list[dict]:
-        query = select(MessageAnalysis.emotions_json)
-        if conversation_id is not None:
-            query = query.join(Message, Message.id == MessageAnalysis.message_id).where(Message.conversation_id == conversation_id)
+    async def emotion_stats(self, db: AsyncSession, user_id: int) -> list[dict]:
+        query = (
+            select(MessageAnalysis.emotions_json)
+            .join(Message, Message.id == MessageAnalysis.message_id)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .where(Conversation.user_id == user_id)
+        )
         rows = (await db.execute(query)).scalars().all()
 
         counts: Counter[str] = Counter()
@@ -25,10 +29,13 @@ class TimePatternAnalytics:
 
         return [{"label": k, "count": v} for k, v in counts.most_common()]
 
-    async def habit_stats(self, db: AsyncSession, conversation_id: int | None = None) -> list[dict]:
-        query = select(MessageAnalysis.habits_json)
-        if conversation_id is not None:
-            query = query.join(Message, Message.id == MessageAnalysis.message_id).where(Message.conversation_id == conversation_id)
+    async def habit_stats(self, db: AsyncSession, user_id: int) -> list[dict]:
+        query = (
+            select(MessageAnalysis.habits_json)
+            .join(Message, Message.id == MessageAnalysis.message_id)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .where(Conversation.user_id == user_id)
+        )
         rows = (await db.execute(query)).scalars().all()
 
         counts: Counter[str] = Counter()
@@ -38,14 +45,14 @@ class TimePatternAnalytics:
 
         return [{"habit": k, "count": v} for k, v in counts.most_common()]
 
-    async def time_patterns(self, db: AsyncSession, conversation_id: int | None = None) -> list[dict]:
+    async def time_patterns(self, db: AsyncSession, user_id: int) -> list[dict]:
         query = (
             select(Message.timestamp, MessageAnalysis.emotions_json)
+            .join(Conversation, Conversation.id == Message.conversation_id)
             .join(MessageAnalysis, MessageAnalysis.message_id == Message.id)
             .where(Message.role == MessageRole.USER)
+            .where(Conversation.user_id == user_id)
         )
-        if conversation_id is not None:
-            query = query.where(Message.conversation_id == conversation_id)
 
         rows = (await db.execute(query)).all()
         bucket: dict[int, Counter[str]] = defaultdict(Counter)
