@@ -60,8 +60,49 @@ export interface TimePatternInsight {
   message_count: number
 }
 
+export interface OverviewInsight {
+  total_messages: number
+  active_days: number
+  dominant_emotion: string | null
+  dominant_habit: string | null
+}
+
+export interface DailyEmotionPoint {
+  label: string
+  count: number
+}
+
+export interface DailyEmotionTrend {
+  date: string
+  total: number
+  emotions: DailyEmotionPoint[]
+}
+
+export interface DailyHabitPoint {
+  habit: string
+  count: number
+}
+
+export interface DailyHabitTrend {
+  date: string
+  total: number
+  habits: DailyHabitPoint[]
+}
+
+export interface HabitEmotionLinkInsight {
+  habit: string
+  emotion: string
+  co_occurrence: number
+  habit_total: number
+  link_strength: number
+}
+
 export interface InsightsBundle {
   emotions: EmotionInsight[]
   habits: HabitInsight[]
   timePatterns: TimePatternInsight[]
+  overview: OverviewInsight | null
+  emotionTrends: DailyEmotionTrend[]
+  habitTrends: DailyHabitTrend[]
+  habitEmotionLinks: HabitEmotionLinkInsight[]
 }

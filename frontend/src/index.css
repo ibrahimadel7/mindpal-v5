@@ -15,8 +15,8 @@ body {
   min-width: 320px;
   overflow: hidden;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  color: #3f362f;
-  background: #f8f4ef;
+  color: #3f372f;
+  background: #f8f6f2;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -27,6 +27,6 @@ body {
 
 @layer components {
   .subtle-icon-button {
-    @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-clay-200/75 bg-white/70 text-ink-700/85 transition-colors duration-200 hover:border-clay-300 hover:bg-white hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 focus-visible:ring-offset-2;
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border border-clay-200/85 bg-white/90 text-ink-700/85 transition-colors duration-200 hover:border-clay-300 hover:bg-white hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 focus-visible:ring-offset-2;
   }
 }

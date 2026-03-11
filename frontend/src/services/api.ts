@@ -6,8 +6,12 @@ import type {
   ConversationListResponse,
   ConversationMessagesResponse,
   CreateConversationRequest,
+  DailyEmotionTrend,
+  DailyHabitTrend,
   EmotionInsight,
+  HabitEmotionLinkInsight,
   HabitInsight,
+  OverviewInsight,
   TimePatternInsight,
 } from '../types/api'
 
@@ -180,6 +184,34 @@ export async function getHabitInsights(userId: number): Promise<HabitInsight[]> 
 export async function getTimeInsights(userId: number): Promise<TimePatternInsight[]> {
   const params = { user_id: userId }
   const { data } = await api.get<TimePatternInsight[]>('/insights/time', { params })
+  return data
+}
+
+export async function getOverviewInsights(userId: number): Promise<OverviewInsight> {
+  const params = { user_id: userId }
+  const { data } = await api.get<OverviewInsight>('/insights/overview', { params })
+  return data
+}
+
+export async function getEmotionTrendInsights(userId: number): Promise<DailyEmotionTrend[]> {
+  const params = { user_id: userId }
+  const { data } = await api.get<DailyEmotionTrend[]>('/insights/trends/emotions', { params })
+  return data
+}
+
+export async function getHabitTrendInsights(userId: number): Promise<DailyHabitTrend[]> {
+  const params = { user_id: userId }
+  const { data } = await api.get<DailyHabitTrend[]>('/insights/trends/habits', { params })
+  return data
+}
+
+export async function getHabitEmotionLinkInsights(
+  userId: number,
+  minCount = 1,
+  topN = 25,
+): Promise<HabitEmotionLinkInsight[]> {
+  const params = { user_id: userId, min_count: minCount, top_n: topN }
+  const { data } = await api.get<HabitEmotionLinkInsight[]>('/insights/associations/habit-emotion', { params })
   return data
 }
 

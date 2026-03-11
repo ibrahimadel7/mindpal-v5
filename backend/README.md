@@ -10,6 +10,7 @@ Backend for a personalized mental health RAG chatbot built with FastAPI, SQLite,
 - NetworkX graph relationships for behavior insights
 - LLM-based emotion and habit detection via Groq
 - Temporal analytics for hour/day trends
+- User-scoped overview metrics, daily emotion/habit trends, and habit-emotion associations
 
 ## Project Structure
 
@@ -59,6 +60,16 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - `GET /insights/habits`
 - `GET /insights/time`
 - `GET /insights/summary`
+- `GET /insights/overview`
+- `GET /insights/trends/emotions`
+- `GET /insights/trends/habits`
+- `GET /insights/associations/habit-emotion`
+
+## Insights Notes
+
+- All insights endpoints are user-scoped and require `user_id` query parameter.
+- `/insights/emotions`, `/insights/habits`, `/insights/time`, and `/insights/summary` are preserved for backward compatibility.
+- Habit-emotion links are association/co-occurrence signals from reflections and should not be interpreted as causation.
 
 ## Notes
 

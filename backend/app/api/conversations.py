@@ -1,13 +1,12 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db_session
 from app.models.conversation import Conversation
 from app.models.message import Message
-from app.models.message_analysis import MessageAnalysis
 from app.models.user import User
 from app.schemas.conversation import (
     ConversationListResponse,
@@ -86,21 +85,20 @@ async def delete_conversation(id: int, db: AsyncSession = Depends(get_db_session
         logger.warning("Delete requested for non-existent conversation_id=%s", id)
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    # Count messages before deletion for logging purposes
     related_message_ids = (
         await db.execute(select(Message.id).where(Message.conversation_id == id))
     ).scalars().all()
+    message_count = len(related_message_ids)
 
     try:
-        if related_message_ids:
-            await db.execute(delete(MessageAnalysis).where(MessageAnalysis.message_id.in_(related_message_ids)))
-            await db.execute(delete(Message).where(Message.conversation_id == id))
-
+        # Use ORM cascade to delete conversation and all related messages/analysis
         await db.delete(conversation)
         await db.commit()
         logger.info(
             "Deleted conversation_id=%s and %s related messages",
             id,
-            len(related_message_ids),
+            message_count,
         )
     except Exception:
         await db.rollback()

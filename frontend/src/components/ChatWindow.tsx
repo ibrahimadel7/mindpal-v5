@@ -68,14 +68,6 @@ export default function ChatWindow({ onOpenNavigation, onOpenInsights }: ChatWin
             <p className="text-lg font-semibold text-ink-900">Today's Reflection</p>
             <p className="text-xs text-ink-700/75">Take your first mindful minute.</p>
           </div>
-          <div className="hidden gap-2 lg:flex">
-            <button type="button" className="rounded-full border border-clay-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-700">
-              Share
-            </button>
-            <button type="button" className="rounded-full border border-clay-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-700">
-              More
-            </button>
-          </div>
         </header>
 
         <div className="flex flex-1 items-center justify-center px-6 py-8">
@@ -124,14 +116,6 @@ export default function ChatWindow({ onOpenNavigation, onOpenInsights }: ChatWin
         <div>
           <p className="text-lg font-semibold text-ink-900">Today's Reflection</p>
           <p className="text-xs text-ink-700/75">Keep writing. You're doing meaningful work.</p>
-        </div>
-        <div className="hidden gap-2 lg:flex">
-          <button type="button" className="rounded-full border border-clay-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-700">
-            Share
-          </button>
-          <button type="button" className="rounded-full border border-clay-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-700">
-            More
-          </button>
         </div>
       </header>
 

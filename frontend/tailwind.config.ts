@@ -6,28 +6,28 @@ const config: Config = {
     extend: {
       colors: {
         sand: {
-          50: '#f8f4ef',
-          100: '#f1e9df',
-          200: '#e5d8c8',
-          300: '#d7c4ad',
-          400: '#c5aa89',
+          50: '#f8f6f2',
+          100: '#f2ede6',
+          200: '#e7ddd1',
+          300: '#d5c6b4',
+          400: '#c3ae96',
         },
         clay: {
-          50: '#f5f1ed',
-          100: '#ece1d6',
-          200: '#dbc6b0',
-          300: '#c6a88e',
-          400: '#ae8669',
+          50: '#f2ede7',
+          100: '#e7ddd1',
+          200: '#d6c4af',
+          300: '#bea489',
+          400: '#a98765',
         },
         sage: {
-          100: '#dfe5db',
-          200: '#c1ceb9',
-          300: '#9fb194',
+          100: '#e2e6df',
+          200: '#c6d0c1',
+          300: '#9daf9f',
         },
         ink: {
-          700: '#51463d',
-          800: '#3f362f',
-          900: '#2b2520',
+          700: '#5a5148',
+          800: '#3f372f',
+          900: '#261f19',
         },
       },
       fontFamily: {
@@ -35,11 +35,11 @@ const config: Config = {
         body: ['Plus Jakarta Sans', 'sans-serif'],
       },
       boxShadow: {
-        soft: '0 16px 36px -26px rgba(63, 54, 47, 0.42)',
+        soft: '0 18px 40px -32px rgba(50, 40, 28, 0.45)',
       },
       borderRadius: {
-        soft: '1rem',
-        bubble: '1.15rem',
+        soft: '1.1rem',
+        bubble: '1.3rem',
       },
       keyframes: {
         rise: {

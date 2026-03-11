@@ -188,6 +188,7 @@ class RAGPipeline:
         emotion_stats = await self.analytics.emotion_stats(db, user_id=user_id)
         habit_stats = await self.analytics.habit_stats(db, user_id=user_id)
         time_patterns = await self.analytics.time_patterns(db, user_id=user_id)
+        habit_emotion_links = await self.analytics.habit_emotion_links(db, user_id=user_id, min_count=2, top_n=12)
 
         history_rows = (
             await db.execute(
@@ -207,6 +208,7 @@ class RAGPipeline:
             emotion_stats=emotion_stats,
             habit_stats=habit_stats,
             time_patterns=time_patterns,
+            habit_emotion_links=habit_emotion_links,
             emotions=emotions,
             habits=habits,
         )
@@ -259,6 +261,7 @@ class RAGPipeline:
         emotion_stats: list[dict],
         habit_stats: list[dict],
         time_patterns: list[dict],
+        habit_emotion_links: list[dict],
         emotions: list[dict],
         habits: list[dict],
     ) -> str:
@@ -274,9 +277,12 @@ class RAGPipeline:
             f"Emotion trends:\n{emotion_stats}\n"
             f"Habit trends:\n{habit_stats}\n"
             f"Time-based patterns:\n{time_patterns}\n\n"
+            f"Habit-emotion associations (historical co-occurrence, not causation):\n{habit_emotion_links}\n\n"
             "Generate a personalized response with:\n"
             "1) brief emotional validation\n"
             "2) one actionable coping or habit suggestion\n"
             "3) one optional follow-up question\n"
+            "Use current detections first, then reference historical associations only as pattern signals. "
+            "Do not present associations as medical or causal conclusions.\n"
             "Keep response under 180 words."
         )

@@ -10,8 +10,12 @@ import {
   deleteConversation as deleteConversationApi,
   getConversationMessages,
   getConversations,
+  getEmotionTrendInsights,
   getEmotionInsights,
+  getHabitEmotionLinkInsights,
+  getHabitTrendInsights,
   getHabitInsights,
+  getOverviewInsights,
   getTimeInsights,
   streamChat,
 } from '../services/api'
@@ -30,7 +34,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [messagesByConversation, setMessagesByConversation] = useState<Record<number, Message[]>>({})
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null)
-  const [insights, setInsights] = useState<InsightsBundle>({ emotions: [], habits: [], timePatterns: [] })
+  const [insights, setInsights] = useState<InsightsBundle>({
+    emotions: [],
+    habits: [],
+    timePatterns: [],
+    overview: null,
+    emotionTrends: [],
+    habitTrends: [],
+    habitEmotionLinks: [],
+  })
   const [isInitializing, setIsInitializing] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [isLoadingInsights, setIsLoadingInsights] = useState(false)
@@ -121,12 +133,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           await selectConversation(nextId)
         }
 
-        const [emotions, habits, timePatterns] = await Promise.all([
+        const [emotions, habits, timePatterns, overview, emotionTrends, habitTrends, habitEmotionLinks] = await Promise.all([
           getEmotionInsights(USER_ID),
           getHabitInsights(USER_ID),
           getTimeInsights(USER_ID),
+          getOverviewInsights(USER_ID),
+          getEmotionTrendInsights(USER_ID),
+          getHabitTrendInsights(USER_ID),
+          getHabitEmotionLinkInsights(USER_ID, 1, 25),
         ])
-        setInsights({ emotions, habits, timePatterns })
+        setInsights({ emotions, habits, timePatterns, overview, emotionTrends, habitTrends, habitEmotionLinks })
       } catch {
         setError('Could not delete this reflection.')
       } finally {
@@ -262,12 +278,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setIsLoadingInsights(true)
     setError(null)
     try {
-      const [emotions, habits, timePatterns] = await Promise.all([
+      const [emotions, habits, timePatterns, overview, emotionTrends, habitTrends, habitEmotionLinks] = await Promise.all([
         getEmotionInsights(USER_ID),
         getHabitInsights(USER_ID),
         getTimeInsights(USER_ID),
+        getOverviewInsights(USER_ID),
+        getEmotionTrendInsights(USER_ID),
+        getHabitTrendInsights(USER_ID),
+        getHabitEmotionLinkInsights(USER_ID, 1, 25),
       ])
-      setInsights({ emotions, habits, timePatterns })
+      setInsights({ emotions, habits, timePatterns, overview, emotionTrends, habitTrends, habitEmotionLinks })
     } catch {
       setError('Insights are unavailable at the moment.')
     } finally {
