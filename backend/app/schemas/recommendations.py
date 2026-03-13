@@ -56,6 +56,11 @@ class AdoptHabitRequest(BaseModel):
     user_id: int
 
 
+class CreateHabitRequest(BaseModel):
+    user_id: int
+    name: str = Field(..., min_length=1, max_length=255)
+
+
 class UserHabitResponse(BaseModel):
     id: int
     user_id: int

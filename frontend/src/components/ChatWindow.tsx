@@ -7,11 +7,10 @@ import { useAppState } from '../state/useAppState'
 const welcomeText = "Good morning. Take a moment to check in with yourself. How are you feeling as you start your day?"
 
 interface ChatWindowProps {
-  onOpenNavigation?: () => void
   onOpenInsights?: () => void
 }
 
-export default function ChatWindow({ onOpenNavigation, onOpenInsights }: ChatWindowProps) {
+export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement | null>(null)
   const {
@@ -46,36 +45,6 @@ export default function ChatWindow({ onOpenNavigation, onOpenInsights }: ChatWin
   if (!currentConversationId) {
     return (
       <section className="flex h-full min-h-0 flex-col">
-        <header className="flex items-center justify-between border-b border-clay-200/70 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-2">
-            {onOpenNavigation ? (
-              <button
-                type="button"
-                onClick={onOpenNavigation}
-                className="subtle-icon-button"
-                aria-label="Open sidebar"
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-                  <path d="M4 7h16" strokeLinecap="round" />
-                  <path d="M4 12h16" strokeLinecap="round" />
-                  <path d="M4 17h16" strokeLinecap="round" />
-                </svg>
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={onOpenInsights}
-              className="rounded-full border border-clay-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-700"
-            >
-              Today
-            </button>
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-ink-900">Today's Reflection</p>
-            <p className="text-xs text-ink-700/75">Take your first mindful minute.</p>
-          </div>
-        </header>
-
         <div className="flex flex-1 items-center justify-center px-6 py-8">
           <div className="w-full max-w-[720px]">
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-clay-200 bg-sand-100 text-sm text-ink-700">
@@ -88,43 +57,20 @@ export default function ChatWindow({ onOpenNavigation, onOpenInsights }: ChatWin
             <SuggestionChips onSelect={setDraft} />
           </div>
         </div>
-        <ChatInput value={draft} onChange={setDraft} onSend={handleSend} isSending={isSending} disabled={false} />
+        <ChatInput
+          value={draft}
+          onChange={setDraft}
+          onSend={handleSend}
+          onOpenToday={onOpenInsights}
+          isSending={isSending}
+          disabled={false}
+        />
       </section>
     )
   }
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center justify-between border-b border-clay-200/70 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2">
-          {onOpenNavigation ? (
-            <button
-              type="button"
-              onClick={onOpenNavigation}
-              className="subtle-icon-button"
-              aria-label="Open sidebar"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-                <path d="M4 7h16" strokeLinecap="round" />
-                <path d="M4 12h16" strokeLinecap="round" />
-                <path d="M4 17h16" strokeLinecap="round" />
-              </svg>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onOpenInsights}
-            className="rounded-full border border-clay-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-700"
-          >
-            Today
-          </button>
-        </div>
-        <div>
-          <p className="text-lg font-semibold text-ink-900">Today's Reflection</p>
-          <p className="text-xs text-ink-700/75">Keep writing. You're doing meaningful work.</p>
-        </div>
-      </header>
-
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6">
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6">
           <p className="rounded-lg border border-clay-200 bg-sand-100 px-3 py-2 text-xs text-ink-700/80">
@@ -148,7 +94,14 @@ export default function ChatWindow({ onOpenNavigation, onOpenInsights }: ChatWin
           <div ref={bottomRef} />
         </div>
       </div>
-      <ChatInput value={draft} onChange={setDraft} onSend={handleSend} isSending={isSending} disabled={!currentConversationId} />
+      <ChatInput
+        value={draft}
+        onChange={setDraft}
+        onSend={handleSend}
+        onOpenToday={onOpenInsights}
+        isSending={isSending}
+        disabled={!currentConversationId}
+      />
     </section>
   )
 }

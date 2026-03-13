@@ -15,6 +15,7 @@ from app.database.base import Base
 from app.models.recommendation_batch import RecommendationBatch
 from app.models.recommendation_item import RecommendationItem
 from app.models.user_habit import UserHabit
+from app.models.user_habit_check import UserHabitCheck
 from app.services.recommendation_service import RecommendationService
 
 
@@ -86,6 +87,44 @@ class RecommendationServiceTests(unittest.IsolatedAsyncioTestCase):
                 await session.execute(select(RecommendationItem).where(RecommendationItem.batch_id == batch.id))
             ).scalars().all()
             self.assertEqual(len(stored_items), 4)
+
+    async def test_delete_habit_removes_it_from_checklist_and_cascades_checks(self) -> None:
+        async with self.session_factory() as session:
+            batch = await self.service.generate_batch(session, user_id=11, category="focus")
+            habit_item = next(item for item in batch.items if item.kind == "habit")
+
+            habit = await self.service.adopt_habit(session, user_id=11, item_id=habit_item.id)
+            await self.service.set_habit_check(
+                session,
+                user_id=11,
+                habit_id=habit.id,
+                for_date=self.fixed_now.date(),
+                completed=True,
+            )
+
+            await self.service.delete_habit(session, user_id=11, habit_id=habit.id)
+
+            checklist_after = await self.service.get_daily_checklist(session, user_id=11, for_date=self.fixed_now.date())
+            self.assertEqual(checklist_after, [])
+
+            stored_habit = (
+                await session.execute(select(UserHabit).where(UserHabit.id == habit.id))
+            ).scalar_one_or_none()
+            self.assertIsNone(stored_habit)
+
+            stored_checks = (
+                await session.execute(select(UserHabitCheck).where(UserHabitCheck.habit_id == habit.id))
+            ).scalars().all()
+            self.assertEqual(stored_checks, [])
+
+    async def test_delete_habit_raises_for_wrong_user(self) -> None:
+        async with self.session_factory() as session:
+            batch = await self.service.generate_batch(session, user_id=12, category="balance")
+            habit_item = next(item for item in batch.items if item.kind == "habit")
+            habit = await self.service.adopt_habit(session, user_id=12, item_id=habit_item.id)
+
+            with self.assertRaisesRegex(ValueError, "Habit not found for this user"):
+                await self.service.delete_habit(session, user_id=99, habit_id=habit.id)
 
 
 if __name__ == "__main__":

@@ -87,6 +87,11 @@ class _FakeRecommendationService:
     async def set_habit_check(self, _db, *, user_id: int, habit_id: int, for_date: date | None, completed: bool):
         return SimpleNamespace(is_completed=completed, completed_at=datetime(2026, 3, 13, 9, 45, 0), check_date=date(2026, 3, 13))
 
+    async def delete_habit(self, _db, *, user_id: int, habit_id: int):
+        if user_id != 3 or habit_id != 4:
+            raise ValueError("Habit not found for this user")
+        return None
+
     def _today(self):
         return date(2026, 3, 13)
 
@@ -125,6 +130,16 @@ class RecommendationsApiTests(unittest.TestCase):
         data = response.json()
         self.assertTrue(data["is_completed"])
         self.assertEqual(data["habit"]["id"], 4)
+
+    def test_delete_habit_endpoint_returns_no_content(self):
+        response = self.client.delete("/recommendations/habits/4", params={"user_id": 3})
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b"")
+
+    def test_delete_habit_endpoint_returns_not_found_for_other_user(self):
+        response = self.client.delete("/recommendations/habits/4", params={"user_id": 7})
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"], "Habit not found for this user")
 
 
 if __name__ == "__main__":

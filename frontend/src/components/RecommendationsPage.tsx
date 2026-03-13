@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import {
   adoptRecommendationItem,
   completeRecommendationItem,
+  createHabit,
+  deleteHabit,
   generateRecommendations,
   getHabitChecklist,
   getRecommendationHistory,
@@ -238,9 +240,31 @@ interface HabitChecklistCardProps {
   checklist: DailyHabitChecklistResponse | null
   activeItemIds: number[]
   onToggleHabit: (item: DailyHabitChecklistItem) => Promise<void>
+  onRemoveHabit: (item: DailyHabitChecklistItem) => Promise<void>
+  onAddHabit: (name: string) => Promise<void>
+  isAddingHabit: boolean
 }
 
-function HabitChecklistCard({ checklist, activeItemIds, onToggleHabit }: HabitChecklistCardProps) {
+function HabitChecklistCard({
+  checklist,
+  activeItemIds,
+  onToggleHabit,
+  onRemoveHabit,
+  onAddHabit,
+  isAddingHabit,
+}: HabitChecklistCardProps) {
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [newHabitName, setNewHabitName] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = newHabitName.trim()
+    if (!trimmed) return
+    await onAddHabit(trimmed)
+    setNewHabitName('')
+    setIsFormOpen(false)
+  }
+
   return (
     <article className="rounded-[1.6rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3">
@@ -256,23 +280,77 @@ function HabitChecklistCard({ checklist, activeItemIds, onToggleHabit }: HabitCh
           {checklist.habits.map((item) => {
             const isBusy = activeItemIds.includes(item.habit.id)
             return (
-              <label key={item.habit.id} className="flex cursor-pointer items-start gap-3 rounded-[1rem] border border-clay-200/70 bg-sand-50/70 px-3 py-3">
-                <input
-                  type="checkbox"
-                  checked={item.is_completed}
-                  onChange={() => void onToggleHabit(item)}
+              <div key={item.habit.id} className="flex items-start gap-3 rounded-[1rem] border border-clay-200/70 bg-sand-50/70 px-3 py-3">
+                <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={item.is_completed}
+                    onChange={() => void onToggleHabit(item)}
+                    disabled={isBusy}
+                    className="mt-1 h-4 w-4 rounded border-clay-300 text-ink-900 focus:ring-clay-300"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-ink-900">{item.habit.name}</span>
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void onRemoveHabit(item)}
                   disabled={isBusy}
-                  className="mt-1 h-4 w-4 rounded border-clay-300 text-ink-900 focus:ring-clay-300"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-ink-900">{item.habit.name}</span>
-                </span>
-              </label>
+                  aria-label={`Remove ${item.habit.name}`}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-clay-200 bg-white text-ink-700 transition hover:border-clay-300 hover:text-ink-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
+                    <path d="M6 7h12" strokeLinecap="round" />
+                    <path d="M9.5 7V5.75c0-.414.336-.75.75-.75h3.5c.414 0 .75.336.75.75V7" strokeLinecap="round" />
+                    <path d="M8.5 10v6" strokeLinecap="round" />
+                    <path d="M12 10v6" strokeLinecap="round" />
+                    <path d="M15.5 10v6" strokeLinecap="round" />
+                    <path d="M7.5 7l.6 10.109a1 1 0 0 0 .998.941h5.804a1 1 0 0 0 .998-.941L16.5 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
             )
           })}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-ink-700/72">Adopt a habit recommendation to build your daily checklist.</p>
+        <p className="mt-4 text-sm text-ink-700/72">Add a habit below or adopt one from your recommendations.</p>
+      )}
+
+      {isFormOpen ? (
+        <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 flex gap-2">
+          <input
+            type="text"
+            value={newHabitName}
+            onChange={(e) => setNewHabitName(e.target.value)}
+            placeholder="e.g. Morning Walk"
+            autoFocus
+            maxLength={255}
+            className="min-w-0 flex-1 rounded-full border border-clay-300 bg-white px-4 py-2 text-sm text-ink-900 placeholder:text-ink-700/45 focus:outline-none focus:ring-2 focus:ring-clay-300"
+          />
+          <button
+            type="submit"
+            disabled={isAddingHabit || !newHabitName.trim()}
+            className="rounded-full bg-ink-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isAddingHabit ? 'Adding...' : 'Add'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsFormOpen(false); setNewHabitName('') }}
+            className="rounded-full border border-clay-200 px-3 py-2 text-sm font-semibold text-ink-700 transition hover:bg-sand-50"
+          >
+            Cancel
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsFormOpen(true)}
+          className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-ink-700 transition hover:text-ink-900"
+        >
+          <span className="text-base leading-none">+</span> Add habit
+        </button>
       )}
     </article>
   )
@@ -325,6 +403,7 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
   const [isLoading, setIsLoading] = useState(true)
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [activeItemIds, setActiveItemIds] = useState<number[]>([])
+  const [isAddingHabit, setIsAddingHabit] = useState(false)
   const [timerItemId, setTimerItemId] = useState<number | null>(null)
   const [timerRemaining, setTimerRemaining] = useState<number | null>(null)
   const [expandedItemIds, setExpandedItemIds] = useState<number[]>([])
@@ -418,13 +497,17 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
     }
   }
 
-  async function runItemAction(itemId: number, action: () => Promise<void>) {
+  async function runItemAction(
+    itemId: number,
+    action: () => Promise<void>,
+    failureMessage = 'That recommendation action could not be completed.',
+  ) {
     setActiveItemIds((current) => [...current, itemId])
     setPageError(null)
     try {
       await action()
     } catch {
-      setPageError('That recommendation action could not be completed.')
+      setPageError(failureMessage)
     } finally {
       setActiveItemIds((current) => current.filter((value) => value !== itemId))
     }
@@ -473,6 +556,20 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
     })
   }
 
+  async function handleAddHabit(name: string) {
+    setIsAddingHabit(true)
+    setPageError(null)
+    try {
+      await createHabit({ user_id: userId, name })
+      const checklistResponse = await getHabitChecklist(userId)
+      setChecklist(checklistResponse)
+    } catch {
+      setPageError('The habit could not be added. Please try again.')
+    } finally {
+      setIsAddingHabit(false)
+    }
+  }
+
   async function handleToggleHabit(item: DailyHabitChecklistItem) {
     await runItemAction(item.habit.id, async () => {
       const updated = await setHabitCheck(item.habit.id, {
@@ -488,6 +585,23 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
         }
       })
     })
+  }
+
+  async function handleRemoveHabit(item: DailyHabitChecklistItem) {
+    const confirmed = window.confirm(`Remove "${item.habit.name}" from today's habit checklist?`)
+    if (!confirmed) {
+      return
+    }
+
+    await runItemAction(
+      item.habit.id,
+      async () => {
+        await deleteHabit(item.habit.id, userId)
+        const checklistResponse = await getHabitChecklist(userId)
+        setChecklist(checklistResponse)
+      },
+      'The habit could not be removed. Please try again.',
+    )
   }
 
   async function handleStartTimer(item: RecommendationItem) {
@@ -550,6 +664,15 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
             </div>
           </div>
         </header>
+
+        <HabitChecklistCard
+          checklist={checklist}
+          activeItemIds={activeItemIds}
+          onToggleHabit={handleToggleHabit}
+          onRemoveHabit={handleRemoveHabit}
+          onAddHabit={handleAddHabit}
+          isAddingHabit={isAddingHabit}
+        />
 
         <article className="rounded-[1.7rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -618,10 +741,7 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
           </article>
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <HabitChecklistCard checklist={checklist} activeItemIds={activeItemIds} onToggleHabit={handleToggleHabit} />
-          <RecentBatchesCard history={history} />
-        </div>
+        <RecentBatchesCard history={history} />
       </div>
     </section>
   )

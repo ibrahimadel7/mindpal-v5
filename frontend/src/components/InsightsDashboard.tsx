@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { useAppState } from '../state/useAppState'
-import type { DailyEmotionTrend } from '../types/api'
 
 interface InsightsDashboardProps {
   onOpenNavigation?: () => void
@@ -45,19 +45,15 @@ function prettify(value: string): string {
     .join(' ')
 }
 
-function weekdayLabel(date: string): string {
-  const parsed = new Date(date)
-  if (Number.isNaN(parsed.getTime())) {
-    return date.slice(0, 3).toUpperCase()
-  }
-  return parsed.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()
-}
-
-function formatFullDate(date: string): string {
+function formatShortDate(date: string): string {
   const parsed = new Date(date)
   if (Number.isNaN(parsed.getTime())) return date
-  return parsed.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+  const weekday = parsed.toLocaleDateString('en-US', { weekday: 'short' })
+  const monthDay = parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `${weekday} · ${monthDay}`
 }
+
+const habitSliceColors = ['#b69173', '#c4a88f', '#d2bca7', '#e0d0c1', '#d4c7ba']
 
 export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboardProps) {
   const { insights, fetchInsights, isLoadingInsights, conversations, messagesByConversation } = useAppState()
@@ -117,68 +113,31 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
     return current
   }, [conversations, messagesByConversation])
 
-  const timelineData = useMemo(() => {
-    const recent = insights.emotionTrends.slice(-7)
-    const enriched = recent.map((day) => {
-      const total = day.total || day.emotions.reduce((sum, item) => sum + item.count, 0)
-      const weighted = day.emotions.reduce((sum, item) => {
-        const w = emotionWeights[normalizeEmotionLabel(item.label)] ?? 0
-        return sum + w * item.count
-      }, 0)
-      const score = total > 0 ? weighted / total : 0
-      return {
-        day: weekdayLabel(day.date),
-        total,
-        source: day,
-        moodLabel: toMoodLevel(score),
-      }
-    })
-    const maxTotal = Math.max(...enriched.map((item) => item.total), 1)
-    return enriched.map((item) => ({
-      ...item,
-      height: Math.max(34, Math.round((item.total / maxTotal) * 100)),
-    }))
-  }, [insights.emotionTrends])
-
-  const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null)
-  const [selectedDay, setSelectedDay] = useState<DailyEmotionTrend | null>(null)
-
-  const selectedDayDetails = useMemo(() => {
-    if (!selectedDay) return null
-    const total = selectedDay.total || selectedDay.emotions.reduce((s, e) => s + e.count, 0)
-    const weighted = selectedDay.emotions.reduce((s, e) => {
-      const w = emotionWeights[normalizeEmotionLabel(e.label)] ?? 0
-      return s + w * e.count
-    }, 0)
-    const score = total > 0 ? weighted / total : 0
-    return {
-      total,
-      moodLabel: toMoodLevel(score),
-      topEmotions: selectedDay.emotions.slice(0, 5),
-      formattedDate: formatFullDate(selectedDay.date),
-    }
-  }, [selectedDay])
+  const [daysBack, setDaysBack] = useState(0)
 
   const emotionFrequencyData = useMemo(() => {
-    const top = insights.emotions.slice(0, 4).map((item) => ({
+    const emotions = insights.emotions.map((item) => ({
       label: prettify(item.label),
       count: item.count,
     }))
-    const maxCount = Math.max(...top.map((item) => item.count), 1)
+    const maxCount = Math.max(...emotions.map((item) => item.count), 1)
 
-    return top.map((item) => ({
+    return emotions.map((item) => ({
       ...item,
       height: Math.max(34, Math.round((item.count / maxCount) * 100)),
     }))
   }, [insights.emotions])
 
-  const habitPairs = useMemo(
+  const habitPieData = useMemo(
     () => {
-      const total = insights.overview?.total_messages ?? 1
-      return insights.habits.slice(0, 2).map((row) => ({
-        habit: prettify(row.habit),
+      const fallbackTotal = insights.habits.reduce((sum, row) => sum + row.count, 0)
+      const total = insights.overview?.total_messages ?? fallbackTotal
+
+      return insights.habits.slice(0, 5).map((row, index) => ({
+        habit: prettify(row.habit || 'Unknown'),
         count: row.count,
-        percentage: Math.round((row.count / total) * 100),
+        percentage: total > 0 ? Math.round((row.count / total) * 100) : 0,
+        color: habitSliceColors[index % habitSliceColors.length],
       }))
     },
     [insights.habits, insights.overview],
@@ -194,14 +153,25 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
     [insights.habitEmotionLinks],
   )
 
-  useEffect(() => {
-    if (!selectedDay) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedDay(null)
+  const widgetDayData = useMemo(() => {
+    const trends = insights.emotionTrends
+    if (!trends.length) return null
+    const idx = Math.max(0, trends.length - 1 - daysBack)
+    const day = trends[idx]
+    if (!day) return null
+    const total = day.total || day.emotions.reduce((s, e) => s + e.count, 0)
+    const emotions = day.emotions.map((e) => ({
+      label: prettify(e.label),
+      count: e.count,
+      pct: total > 0 ? Math.round((e.count / total) * 100) : 0,
+    }))
+    return {
+      dateLabel: formatShortDate(day.date),
+      emotions,
+      total,
+      isToday: daysBack === 0,
     }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedDay])
+  }, [insights.emotionTrends, daysBack])
 
   useEffect(() => {
     void fetchInsights()
@@ -244,113 +214,91 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_290px]">
           <div className="space-y-5">
-            <article className="rounded-[1.7rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft sm:p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold text-ink-900">Mood Timeline</h2>
-                <p className="rounded-full bg-clay-100 px-3 py-1 text-xs font-semibold text-ink-700">Last 7 days</p>
+            <article className="rounded-[1.85rem] bg-[linear-gradient(170deg,rgba(255,255,255,0.98)_0%,rgba(248,244,238,0.94)_100%)] p-5 shadow-soft sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="font-heading text-[1.9rem] leading-none text-ink-900 sm:text-[2.05rem]">Emotion Frequency</h2>
+                <span className="mt-1 rounded-full bg-clay-100/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-700">All emotions</span>
               </div>
 
-              {timelineData.length ? (
-                <div className="mt-5 grid grid-cols-7 items-end gap-2 sm:gap-3">
-                  {timelineData.map((item, index) => (
-                    <div key={`${item.day}-${index}`} className="relative flex flex-col items-center gap-2">
-                      {hoveredDayIndex === index && (
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-[136px] -translate-x-1/2 rounded-[1rem] border border-clay-200/80 bg-white/97 p-2.5 text-center shadow-soft">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-clay-300">{item.moodLabel}</p>
-                          <p className="mt-0.5 text-xs font-semibold text-ink-900">
-                            {item.source.emotions[0] ? prettify(item.source.emotions[0].label) : '\u2014'}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-ink-700/70">
-                            {item.total} {item.total === 1 ? 'entry' : 'entries'}
-                          </p>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        aria-label={`View mood details for ${item.day}`}
-                        className="flex h-40 w-full cursor-pointer items-end justify-center rounded-[1rem] bg-sand-50/95 p-1 transition-all hover:bg-sand-100/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 sm:h-44"
-                        onMouseEnter={() => setHoveredDayIndex(index)}
-                        onMouseLeave={() => setHoveredDayIndex(null)}
-                        onFocus={() => setHoveredDayIndex(index)}
-                        onBlur={() => setHoveredDayIndex(null)}
-                        onClick={() => setSelectedDay(item.source)}
-                      >
+              {emotionFrequencyData.length ? (
+                <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] items-end gap-3 sm:gap-4">
+                  {emotionFrequencyData.map((item, index) => (
+                    <div key={item.label} className="flex w-full flex-col items-center gap-2.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-700/75 sm:text-xs">
+                        {item.count}
+                      </span>
+                      <div className="flex h-44 w-full max-w-[100px] items-end justify-center rounded-[1.15rem] bg-sand-50/95 p-1.5 sm:h-48 sm:max-w-[110px]">
                         <div
-                          className={`w-full rounded-[0.9rem] transition-all ${
-                            index === timelineData.length - 1 ? 'bg-clay-300/95' : 'bg-clay-100/95'
-                          }`}
+                          className={`w-full rounded-[0.95rem] transition-all duration-300 ${index === 0 ? 'bg-clay-300/95 shadow-[0_7px_18px_-13px_rgba(102,73,45,0.55)]' : 'bg-clay-100/95'}`}
                           style={{ height: `${item.height}%` }}
                         />
-                      </button>
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-700/70 sm:text-xs">
-                        {item.day}
+                      </div>
+                      <span className="min-h-[2.2rem] text-center text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-ink-700/80 sm:min-h-[2.35rem] sm:text-xs">
+                        {item.label}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-ink-700/70">No timeline data yet.</p>
+                <p className="mt-4 text-sm text-ink-700/70">No emotion insights yet.</p>
               )}
             </article>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              <article className="rounded-[1.5rem] border border-clay-200/70 bg-white/95 p-5 shadow-soft">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-[1.35rem] font-semibold text-ink-900">Emotion Frequency</h2>
-                  <span className="rounded-full bg-clay-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-700">
-                    Top 4
-                  </span>
-                </div>
-                {emotionFrequencyData.length ? (
-                  <div className="mt-5 grid grid-cols-4 items-end gap-2 sm:gap-3">
-                    {emotionFrequencyData.map((item, index) => (
-                      <div key={item.label} className="flex flex-col items-center gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-700/65 sm:text-xs">
-                          {item.count}
-                        </span>
-                        <div className="flex h-36 w-full items-end justify-center rounded-[1rem] bg-sand-50/95 p-1 sm:h-40">
-                          <div
-                            className={`w-full rounded-[0.9rem] transition-all ${index === 0 ? 'bg-clay-300/95' : 'bg-clay-100/95'}`}
-                            style={{ height: `${item.height}%` }}
-                          />
-                        </div>
-                        <span className="text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.08em] text-ink-700/70 sm:text-xs">
-                          {item.label}
-                        </span>
-                      </div>
-                    ))}
+            <article className="rounded-[1.5rem] border border-clay-200/70 bg-white/95 p-5 shadow-soft">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[1.35rem] font-semibold text-ink-900">Habit Frequency</h2>
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-clay-300">Most Frequent</span>
+              </div>
+
+              {habitPieData.length ? (
+                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-center">
+                  <div className="h-56 w-full rounded-soft border border-clay-100 bg-sand-50/60 p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={habitPieData}
+                          dataKey="count"
+                          nameKey="habit"
+                          outerRadius={92}
+                          stroke="#f8f4ee"
+                          strokeWidth={2}
+                          isAnimationActive
+                        >
+                          {habitPieData.map((slice) => (
+                            <Cell key={slice.habit} fill={slice.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value, _name, item) => {
+                            const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
+                            const entry = item?.payload as { percentage?: number } | undefined
+                            return [`${numericValue} messages (${entry?.percentage ?? 0}%)`, 'Share']
+                          }}
+                          contentStyle={{ borderRadius: '0.75rem', border: '1px solid #e3d7ca', fontSize: '12px' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ) : (
-                  <p className="mt-4 text-sm text-ink-700/70">No emotion insights yet.</p>
-                )}
-              </article>
 
-              <article className="rounded-[1.5rem] border border-clay-200/70 bg-white/95 p-5 shadow-soft">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-[1.35rem] font-semibold text-ink-900">Habit Frequency</h2>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-clay-300">Most Frequent</span>
-                </div>
-
-                {habitPairs.length ? (
-                  <div className="mt-4 space-y-3.5">
-                    {habitPairs.map((pair) => (
-                      <div key={pair.habit} className="rounded-soft border border-clay-100 bg-sand-50/70 p-3">
-                        <p className="text-sm font-semibold text-ink-900">{pair.habit}</p>
-                        <p className="mt-0.5 text-xs text-ink-700">{pair.percentage}% of messages</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <div className="h-2 w-full rounded-full bg-clay-100">
-                            <div className="h-2 rounded-full bg-clay-300" style={{ width: `${Math.max(pair.percentage, 5)}%` }} />
+                  <div className="space-y-2.5">
+                    {habitPieData.map((slice) => (
+                      <div key={slice.habit} className="rounded-soft border border-clay-100 bg-sand-50/70 px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: slice.color }} aria-hidden="true" />
+                            <p className="text-sm font-semibold text-ink-900">{slice.habit}</p>
                           </div>
-                          <span className="text-xs font-semibold text-ink-700">{pair.percentage}%</span>
+                          <p className="text-xs font-semibold text-ink-700">{slice.percentage}%</p>
                         </div>
+                        <p className="mt-0.5 text-xs text-ink-700">{slice.count} messages</p>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="mt-4 text-sm text-ink-700/70">No habit data yet.</p>
-                )}
-              </article>
-            </div>
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-ink-700/70">No habit data yet.</p>
+              )}
+            </article>
             <article className="rounded-[1.5rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-ink-900">Detailed Patterns</h2>
@@ -403,18 +351,63 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
             </article>
 
             <article className="rounded-[1.2rem] border border-clay-200/75 bg-white/95 p-4 shadow-soft">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-700/65">Top Habits</p>
-              {insights.habits.length ? (
-                <div className="mt-3 space-y-2">
-                  {insights.habits.slice(0, 3).map((habit) => (
-                    <div key={habit.habit} className="flex items-center justify-between text-sm">
-                      <span className="text-ink-800">{prettify(habit.habit)}</span>
-                      <span className="font-semibold text-ink-800">{habit.count}</span>
-                    </div>
-                  ))}
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink-900">
+                  {widgetDayData ? widgetDayData.dateLabel : '—'}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Previous day"
+                    disabled={!insights.emotionTrends.length || daysBack >= insights.emotionTrends.length - 1}
+                    onClick={() => setDaysBack((prev) => prev + 1)}
+                    className="subtle-icon-button disabled:pointer-events-none disabled:opacity-30"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next day"
+                    disabled={daysBack === 0}
+                    onClick={() => setDaysBack((prev) => prev - 1)}
+                    className="subtle-icon-button disabled:pointer-events-none disabled:opacity-30"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
+              </div>
+              {widgetDayData ? (
+                <>
+                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-700/55">
+                    Emotions · {widgetDayData.total} {widgetDayData.total === 1 ? 'entry' : 'entries'}
+                  </p>
+                  {widgetDayData.emotions.length ? (
+                    <div className="mt-3 space-y-2.5">
+                      {widgetDayData.emotions.map((e) => (
+                        <div key={e.label}>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium text-ink-800">{e.label}</span>
+                            <span className="font-semibold text-ink-800">{e.pct}%</span>
+                          </div>
+                          <div className="mt-1 h-1.5 w-full rounded-full bg-clay-100">
+                            <div
+                              className="h-1.5 rounded-full bg-clay-300 transition-all"
+                              style={{ width: `${Math.max(e.pct, 4)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-ink-700/70">No emotion data for this day.</p>
+                  )}
+                </>
               ) : (
-                <p className="mt-2 text-sm text-ink-700/70">No habit highlights yet.</p>
+                <p className="mt-2 text-sm text-ink-700/70">No emotion data yet.</p>
               )}
             </article>
           </aside>
@@ -432,67 +425,6 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
         ) : null}
       </div>
 
-      {selectedDay && selectedDayDetails && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Mood details for ${selectedDayDetails.formattedDate}`}
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-ink-900/25"
-            aria-label="Close"
-            onClick={() => setSelectedDay(null)}
-          />
-          <div className="relative z-10 mx-0 w-full max-w-sm rounded-t-[1.7rem] border border-clay-200/80 bg-white/98 p-6 shadow-soft sm:mx-4 sm:rounded-[1.7rem]">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-700/60">
-                  {selectedDayDetails.formattedDate}
-                </p>
-                <h3 className="mt-1 text-2xl font-semibold text-ink-900">{selectedDayDetails.moodLabel}</h3>
-              </div>
-              <button
-                type="button"
-                className="subtle-icon-button mt-0.5 shrink-0"
-                aria-label="Close details"
-                onClick={() => setSelectedDay(null)}
-              >
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path d="M18 6L6 18" strokeLinecap="round" />
-                  <path d="M6 6l12 12" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-ink-700/70">
-              {selectedDayDetails.total} emotion {selectedDayDetails.total === 1 ? 'entry' : 'entries'} recorded.
-            </p>
-            {selectedDayDetails.topEmotions.length ? (
-              <div className="mt-4 space-y-2.5">
-                {selectedDayDetails.topEmotions.map((e) => (
-                  <div key={e.label} className="rounded-soft border border-clay-100 bg-sand-50/70 px-3.5 py-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-ink-900">{prettify(e.label)}</p>
-                      <span className="text-xs font-semibold text-ink-700">{e.count}</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 w-full rounded-full bg-clay-100">
-                      <div
-                        className="h-1.5 rounded-full bg-clay-300"
-                        style={{
-                          width: `${Math.max(Math.round((e.count / (selectedDayDetails.topEmotions[0]?.count ?? 1)) * 100), 5)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-ink-700/70">No emotion data for this day.</p>
-            )}
-          </div>
-        </div>
-      )}
     </section>
   )
 }

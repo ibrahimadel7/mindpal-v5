@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import get_db_session
 from app.schemas.recommendations import (
     AdoptHabitRequest,
+    CreateHabitRequest,
     DailyHabitChecklistItemResponse,
     DailyHabitChecklistResponse,
     HabitCheckRequest,
@@ -141,6 +142,15 @@ async def recommendation_item_to_habit(
     return UserHabitResponse.model_validate(habit, from_attributes=True)
 
 
+@router.post("/habits", response_model=UserHabitResponse, status_code=status.HTTP_201_CREATED)
+async def create_habit(
+    payload: CreateHabitRequest,
+    db: AsyncSession = Depends(get_db_session),
+) -> UserHabitResponse:
+    habit = await recommendation_service.create_habit(db, user_id=payload.user_id, name=payload.name)
+    return UserHabitResponse.model_validate(habit, from_attributes=True)
+
+
 @router.get("/habits/checklist", response_model=DailyHabitChecklistResponse)
 async def recommendations_habit_checklist(
     user_id: int,
@@ -189,3 +199,15 @@ async def recommendations_set_habit_check(
             )
 
     raise HTTPException(status_code=404, detail="Habit not found for this user")
+
+
+@router.delete("/habits/{habit_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def recommendations_delete_habit(
+    habit_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    try:
+        await recommendation_service.delete_habit(db, user_id=user_id, habit_id=habit_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

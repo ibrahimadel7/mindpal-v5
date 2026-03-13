@@ -323,4 +323,15 @@ export async function setHabitCheck(habitId: number, payload: HabitCheckRequest)
   return data
 }
 
+export async function createHabit(payload: { user_id: number; name: string }): Promise<UserHabit> {
+  const { data } = await api.post<UserHabit>('/recommendations/habits', payload)
+  return data
+}
+
+export async function deleteHabit(habitId: number, userId: number): Promise<void> {
+  await api.delete(`/recommendations/habits/${habitId}`, {
+    params: { user_id: userId },
+  })
+}
+
 export { api }

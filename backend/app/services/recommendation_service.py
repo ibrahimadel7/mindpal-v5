@@ -224,6 +224,30 @@ class RecommendationService:
         await db.refresh(habit)
         return habit
 
+    async def create_habit(self, db: AsyncSession, *, user_id: int, name: str) -> UserHabit:
+        name = name.strip()
+        existing = (
+            await db.execute(
+                select(UserHabit).where(
+                    UserHabit.user_id == user_id,
+                    UserHabit.name == name,
+                    UserHabit.is_active.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
+        habit = UserHabit(
+            user_id=user_id,
+            name=name,
+            category="general",
+            is_active=True,
+        )
+        db.add(habit)
+        await db.commit()
+        await db.refresh(habit)
+        return habit
+
     async def get_daily_checklist(
         self,
         db: AsyncSession,
@@ -257,6 +281,11 @@ class RecommendationService:
         for habit in habits:
             result.append((habit, checks_by_habit_id.get(habit.id)))
         return result
+
+    async def delete_habit(self, db: AsyncSession, *, user_id: int, habit_id: int) -> None:
+        habit = await self._get_habit_owned_by_user(db, user_id=user_id, habit_id=habit_id)
+        await db.delete(habit)
+        await db.commit()
 
     async def set_habit_check(
         self,
@@ -520,6 +549,16 @@ class RecommendationService:
         if item is None:
             raise ValueError("Recommendation item not found for this user")
         return item
+
+    async def _get_habit_owned_by_user(self, db: AsyncSession, *, user_id: int, habit_id: int) -> UserHabit:
+        habit = (
+            await db.execute(
+                select(UserHabit).where(UserHabit.id == habit_id, UserHabit.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+        if habit is None:
+            raise ValueError("Habit not found for this user")
+        return habit
 
     async def _log_event(
         self,
