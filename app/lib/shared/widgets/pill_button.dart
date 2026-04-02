@@ -19,7 +19,7 @@ class PillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _style();
+    final style = _style(context);
     final child = FilledButton(
       onPressed: onPressed,
       style: style,
@@ -32,12 +32,12 @@ class PillButton extends StatelessWidget {
     return SizedBox(width: double.infinity, child: child);
   }
 
-  ButtonStyle _style() {
+  ButtonStyle _style(BuildContext context) {
     switch (variant) {
       case PillButtonVariant.primary:
         return FilledButton.styleFrom(
-          backgroundColor: MindPalColors.ink900,
-          foregroundColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),
           ),
@@ -45,18 +45,24 @@ class PillButton extends StatelessWidget {
         );
       case PillButtonVariant.secondary:
         return FilledButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: MindPalColors.ink800,
+          backgroundColor: Theme.of(context).cardColor,
+          foregroundColor:
+              Theme.of(context).textTheme.bodyLarge?.color ??
+              MindPalColors.ink800,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),
-            side: const BorderSide(color: MindPalColors.clay300),
+            side: BorderSide(
+              color: Theme.of(context).disabledColor.withValues(alpha: 0.2),
+            ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         );
       case PillButtonVariant.ghost:
         return FilledButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: MindPalColors.ink700,
+          foregroundColor:
+              Theme.of(context).textTheme.bodySmall?.color ??
+              MindPalColors.ink700,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),

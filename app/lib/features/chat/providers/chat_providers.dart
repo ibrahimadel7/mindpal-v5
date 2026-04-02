@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -61,16 +62,19 @@ class ChatState {
   }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<List<Conversation>> conversations(Ref ref) async {
   final repo = ref.watch(chatRepositoryProvider);
   return repo.fetchConversations();
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class ChatNotifier extends _$ChatNotifier {
   @override
   ChatState build() {
+    ref.onDispose(() {
+      // Cancel any in-flight operations when disposed
+    });
     ref.read(chatLocalCacheProvider).warmup();
     return ChatState.initial();
   }
@@ -83,33 +87,151 @@ class ChatNotifier extends _$ChatNotifier {
 
     try {
       final available = await ref.read(conversationsProvider.future);
+      // Check if provider is still mounted after async operation
+      if (!ref.mounted) return;
+
       if (available.isNotEmpty) {
         final conversationId = available.first.id;
+        
+        // First check local cache
         final cached = ref
             .read(chatLocalCacheProvider)
             .readMessages(conversationId);
-        state = state.copyWith(
-          currentConversationId: conversationId,
-          messages: <String, List<Message>>{
-            ...state.messages,
-            conversationId: cached,
-          },
-          isInitializing: false,
-        );
-        return;
+        
+        if (cached.isNotEmpty) {
+          if (!ref.mounted) return;
+          state = state.copyWith(
+            currentConversationId: conversationId,
+            messages: <String, List<Message>>{
+              ...state.messages,
+              conversationId: cached,
+            },
+            isInitializing: false,
+          );
+          return;
+        }
+
+        // If cache is empty, fetch from backend
+        try {
+          final repo = ref.read(chatRepositoryProvider);
+          final messages = await repo.fetchMessages(conversationId);
+          if (!ref.mounted) return;
+
+          state = state.copyWith(
+            currentConversationId: conversationId,
+            messages: <String, List<Message>>{
+              ...state.messages,
+              conversationId: messages,
+            },
+            isInitializing: false,
+          );
+
+          // Update local cache
+          await ref
+              .read(chatLocalCacheProvider)
+              .writeMessages(conversationId, messages);
+          return;
+        } catch (_) {
+          // If fetch fails, continue to create new conversation
+        }
       }
 
       final repo = ref.read(chatRepositoryProvider);
       final created = await repo.createConversation();
+      // Check if provider is still mounted after async operation
+      if (!ref.mounted) return;
+
       state = state.copyWith(
         currentConversationId: created.id,
         isInitializing: false,
       );
       ref.invalidate(conversationsProvider);
     } catch (_) {
+      if (!ref.mounted) return;
       state = state.copyWith(
         isInitializing: false,
         error: 'Unable to start your conversation right now.',
+      );
+    }
+  }
+
+  Future<void> switchConversation(String conversationId) async {
+    state = state.copyWith(
+      currentConversationId: conversationId,
+      isInitializing: true,
+    );
+
+    // First check local cache
+    final cached = ref
+        .read(chatLocalCacheProvider)
+        .readMessages(conversationId);
+    
+    if (cached.isNotEmpty) {
+      state = state.copyWith(
+        messages: <String, List<Message>>{
+          ...state.messages,
+          conversationId: cached,
+        },
+        isInitializing: false,
+      );
+      return;
+    }
+
+    // If cache is empty, fetch from backend
+    try {
+      final repo = ref.read(chatRepositoryProvider);
+      final messages = await repo.fetchMessages(conversationId);
+      if (!ref.mounted) return;
+
+      state = state.copyWith(
+        messages: <String, List<Message>>{
+          ...state.messages,
+          conversationId: messages,
+        },
+        isInitializing: false,
+      );
+
+      // Update local cache
+      await ref
+          .read(chatLocalCacheProvider)
+          .writeMessages(conversationId, messages);
+    } catch (_) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isInitializing: false,
+        error: 'Unable to load conversation messages.',
+      );
+    }
+  }
+
+  Future<void> startNewConversation() async {
+    // Check if current conversation has any messages
+    final currentMessages = state.currentMessages;
+    if (currentMessages.isEmpty && state.currentConversationId != null) {
+      // Current conversation is empty, don't create a new one
+      return;
+    }
+
+    state = state.copyWith(isInitializing: true, error: null);
+    try {
+      final repo = ref.read(chatRepositoryProvider);
+      final created = await repo.createConversation();
+      if (!ref.mounted) return;
+
+      state = state.copyWith(
+        currentConversationId: created.id,
+        messages: <String, List<Message>>{
+          ...state.messages,
+          created.id: <Message>[],
+        },
+        isInitializing: false,
+      );
+      ref.invalidate(conversationsProvider);
+    } catch (_) {
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        isInitializing: false,
+        error: 'Unable to start a new conversation right now.',
       );
     }
   }
@@ -120,6 +242,9 @@ class ChatNotifier extends _$ChatNotifier {
     }
 
     await ensureConversation();
+    // Check if provider is still mounted after async operation
+    if (!ref.mounted) return;
+
     final conversationId = state.currentConversationId;
     if (conversationId == null) {
       return;
@@ -150,6 +275,9 @@ class ChatNotifier extends _$ChatNotifier {
         conversationId: conversationId,
         message: text.trim(),
       );
+      // Check if provider is still mounted after async operation
+      if (!ref.mounted) return;
+
       final assistantMessage = Message(
         id: '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(999)}',
         conversationId: conversationId,
@@ -165,6 +293,7 @@ class ChatNotifier extends _$ChatNotifier {
         isSending: false,
         showStreaming: false,
       );
+      ref.invalidate(conversationsProvider);
       await ref
           .read(chatLocalCacheProvider)
           .writeMessages(
@@ -172,6 +301,7 @@ class ChatNotifier extends _$ChatNotifier {
             state.messages[conversationId] ?? const <Message>[],
           );
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(
         isSending: false,
         showStreaming: false,

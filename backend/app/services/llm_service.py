@@ -12,6 +12,10 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+class LLMServiceError(Exception):
+    """Raised when the Groq API key is not configured and no fallback is available."""
+
+
 class LLMService:
     """Groq LLM service for chat, extraction, and embeddings."""
 
@@ -19,9 +23,17 @@ class LLMService:
         self.settings = get_settings()
         self.base_url = "https://api.groq.com/openai/v1"
 
+    @property
+    def is_configured(self) -> bool:
+        """Return True if the Groq API key is configured."""
+        return bool(self.settings.groq_api_key)
+
     def _headers(self) -> dict[str, str]:
         if not self.settings.groq_api_key:
-            raise RuntimeError("GROQ_API_KEY is not configured")
+            raise LLMServiceError(
+                "GROQ_API_KEY is not configured. "
+                "Set a valid key in your .env file or via the GROQ_API_KEY environment variable."
+            )
         return {
             "Authorization": f"Bearer {self.settings.groq_api_key}",
             "Content-Type": "application/json",
@@ -35,8 +47,18 @@ class LLMService:
             try:
                 async with httpx.AsyncClient(timeout=self.settings.llm_timeout_seconds) as client:
                     response = await client.request(method, f"{self.base_url}{path}", headers=headers, json=payload)
+                    if response.status_code == 401:
+                        raise RuntimeError(
+                            "Groq API authentication failed (401 Unauthorized). "
+                            "Check that GROQ_API_KEY is set to a valid key in your .env file. "
+                            f"Current key preview: {self.settings.groq_api_key[:8]}..."
+                            if len(self.settings.groq_api_key) > 8
+                            else "GROQ_API_KEY appears to be empty or a placeholder."
+                        )
                     response.raise_for_status()
                     return response.json()
+            except RuntimeError:
+                raise
             except Exception as exc:  # noqa: BLE001
                 last_err = exc
                 logger.warning("Groq request failed on attempt %s/%s: %s", attempt, self.settings.llm_max_retries, exc)
@@ -100,6 +122,11 @@ class LLMService:
                         headers=headers,
                         json=payload,
                     ) as response:
+                        if response.status_code == 401:
+                            raise RuntimeError(
+                                "Groq API authentication failed (401 Unauthorized). "
+                                "Check that GROQ_API_KEY is set to a valid key in your .env file."
+                            )
                         response.raise_for_status()
                         async for line in response.aiter_lines():
                             if not line or not line.startswith("data:"):
@@ -121,6 +148,8 @@ class LLMService:
                                 if token:
                                     yield token
                 return
+            except RuntimeError:
+                raise
             except Exception as exc:  # noqa: BLE001
                 last_err = exc
                 logger.warning(

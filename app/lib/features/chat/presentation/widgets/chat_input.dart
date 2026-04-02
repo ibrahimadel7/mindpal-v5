@@ -18,6 +18,8 @@ class ChatInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
         Row(
@@ -29,13 +31,29 @@ class ChatInput extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? MindPalColors.darkSurfaceHigh : Colors.white,
                   shape: BoxShape.circle,
-                  border: Border.all(color: MindPalColors.clay200),
+                  border: Border.all(
+                    color:
+                        isDark
+                            ? MindPalColors.darkBorder
+                            : MindPalColors.clay200,
+                  ),
                 ),
                 child: IconButton(
                   onPressed: enabled ? () {} : null,
-                  icon: const Icon(Icons.today_outlined, size: 18),
+                  icon: Icon(
+                    Icons.today_outlined,
+                    size: 18,
+                    color:
+                        enabled
+                            ? (isDark
+                                ? MindPalColors.darkTextPrimary
+                                : MindPalColors.ink900)
+                            : (isDark
+                                ? MindPalColors.darkTextTertiary
+                                : MindPalColors.clay300),
+                  ),
                 ),
               ),
             Expanded(
@@ -54,41 +72,51 @@ class ChatInput extends StatelessWidget {
             Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: MindPalColors.ink900,
+              decoration: BoxDecoration(
+                color:
+                    enabled
+                        ? Theme.of(context).colorScheme.primary
+                        : (isDark
+                            ? MindPalColors.darkSurfaceHigh
+                            : MindPalColors.sand100),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
                 onPressed: enabled ? onSend : null,
-                color: Colors.white,
+                color:
+                    enabled
+                        ? Theme.of(context).colorScheme.onPrimary
+                        : (isDark
+                            ? MindPalColors.darkTextTertiary
+                            : MindPalColors.clay300),
                 icon: const Icon(Icons.arrow_upward_rounded),
               ),
             ),
           ],
         ),
         if (docked)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(4, 8, 2, 0),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 2, 0),
             child: Row(
               children: [
                 Icon(
                   Icons.mic_none_rounded,
                   size: 18,
-                  color: MindPalColors.ink700,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Icon(
                   Icons.image_outlined,
                   size: 18,
-                  color: MindPalColors.ink700,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
-                Spacer(),
+                const Spacer(),
                 Text(
                   'MINDPAL AI',
                   style: TextStyle(
                     fontSize: 10,
                     letterSpacing: 0.8,
-                    color: MindPalColors.ink700,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

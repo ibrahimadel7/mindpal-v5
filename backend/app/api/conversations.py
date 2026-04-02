@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -64,7 +64,7 @@ async def close_conversation(
 
     if not conversation.is_closed:
         conversation.is_closed = True
-        conversation.closed_at = datetime.utcnow()
+        conversation.closed_at = datetime.now(UTC)
         try:
             await memory_service.summarize_and_store_conversation(
                 db,

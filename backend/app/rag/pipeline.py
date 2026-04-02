@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 import httpx
@@ -229,7 +229,7 @@ class RAGPipeline:
         db.add(user_message)
         await db.flush()
 
-        now = user_message.timestamp or datetime.utcnow()
+        now = user_message.timestamp or datetime.now(UTC)
         await self.vector.upsert_message_embedding(
             vector_id=f"msg-{user_message.id}",
             content=user_text,
@@ -390,7 +390,7 @@ class RAGPipeline:
             user_id=context.user_id,
             conversation_id=context.conversation_id,
             message_id=assistant_message.id,
-            timestamp=assistant_message.timestamp or datetime.utcnow(),
+            timestamp=assistant_message.timestamp or datetime.now(UTC),
             emotions=context.emotions,
             habits=context.habits,
             role=MessageRole.ASSISTANT.value,

@@ -7,19 +7,19 @@ class MindPalCard extends StatelessWidget {
     super.key,
     this.radius = 20,
     this.padding = const EdgeInsets.all(16),
-    this.color = Colors.white,
+    this.color,
   });
 
   final Widget child;
   final double radius;
   final EdgeInsetsGeometry padding;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: color,
+        color: color ?? Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(

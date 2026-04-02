@@ -23,7 +23,10 @@ class _RecommendationCardState extends State<RecommendationCard> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: MindPalColors.surfaceLow,
+        color:
+            Theme.of(context).brightness == Brightness.dark
+                ? MindPalColors.darkSurface
+                : MindPalColors.surfaceLow,
         borderRadius: BorderRadius.circular(28),
       ),
       child: Row(
@@ -37,24 +40,39 @@ class _RecommendationCardState extends State<RecommendationCard> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _TinyPill(label: item.kind.toUpperCase(), bg: Colors.white),
+                    _TinyPill(
+                      label: item.kind.toUpperCase(),
+                      bg:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? MindPalColors.darkSurfaceHigh
+                              : Colors.white,
+                    ),
                     _TinyPill(
                       label: item.duration.toUpperCase(),
-                      bg: MindPalColors.clay100,
+                      bg:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? MindPalColors.darkSurfaceMid
+                              : MindPalColors.clay100,
                     ),
                     _TinyPill(
                       label: item.status.toUpperCase(),
-                      bg: MindPalColors.clay200,
+                      bg:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? MindPalColors.darkBorder
+                              : MindPalColors.clay200,
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(
                   item.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: MindPalColors.ink900,
+                    color:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? MindPalColors.darkTextPrimary
+                            : MindPalColors.ink900,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -63,9 +81,12 @@ class _RecommendationCardState extends State<RecommendationCard> {
                   maxLines: _expanded ? null : 2,
                   overflow:
                       _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: MindPalColors.ink700,
+                    color:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? MindPalColors.darkTextSecondary
+                            : MindPalColors.ink700,
                   ),
                 ),
                 if (_expanded && item.followUp != null) ...[
@@ -74,9 +95,17 @@ class _RecommendationCardState extends State<RecommendationCard> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? MindPalColors.darkSurfaceHigh
+                              : Colors.white.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: MindPalColors.clay200),
+                      border: Border.all(
+                        color:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? MindPalColors.darkBorder
+                                : MindPalColors.clay200,
+                      ),
                     ),
                     child: Text(item.followUp!),
                   ),
@@ -133,9 +162,12 @@ class _TinyPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10,
-          color: MindPalColors.ink800,
+          color:
+              Theme.of(context).brightness == Brightness.dark
+                  ? MindPalColors.darkTextPrimary
+                  : MindPalColors.ink800,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
         ),

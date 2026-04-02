@@ -70,8 +70,13 @@ class RecommendationsNotifier extends _$RecommendationsNotifier {
 
   @override
   RecommendationsState build() {
-    ref.onDispose(() => _ticker?.cancel());
-    Future<void>.microtask(refreshBatch);
+    ref.onDispose(() {
+      _ticker?.cancel();
+      _ticker = null;
+    });
+    Future<void>.microtask(() async {
+      await refreshBatch();
+    });
     return RecommendationsState.initial();
   }
 
@@ -80,7 +85,10 @@ class RecommendationsNotifier extends _$RecommendationsNotifier {
     try {
       final repo = ref.read(recommendationsRepositoryProvider);
       final batch = await repo.today(category: state.selectedCategory);
+      // Check if provider is still mounted after async operation
+      if (!ref.mounted) return;
       final checklist = await repo.checklist();
+      if (!ref.mounted) return;
       state = state.copyWith(
         batch: batch,
         checklist: checklist,
@@ -89,6 +97,7 @@ class RecommendationsNotifier extends _$RecommendationsNotifier {
       );
       _startTicker();
     } catch (_) {
+      if (!ref.mounted) return;
       state = state.copyWith(
         loading: false,
         error: 'Unable to load recommendations.',
@@ -99,6 +108,8 @@ class RecommendationsNotifier extends _$RecommendationsNotifier {
   Future<void> generateBatch() async {
     final repo = ref.read(recommendationsRepositoryProvider);
     final items = await repo.generate(category: state.selectedCategory);
+    // Check if provider is still mounted after async operation
+    if (!ref.mounted) return;
     state = state.copyWith(batch: items, timers: _buildTimers(items));
   }
 
@@ -110,6 +121,8 @@ class RecommendationsNotifier extends _$RecommendationsNotifier {
   Future<void> toggleHabit(HabitChecklistItem item, bool checked) async {
     final repo = ref.read(recommendationsRepositoryProvider);
     await repo.setHabitChecked(id: item.id, completed: checked);
+    // Check if provider is still mounted after async operation
+    if (!ref.mounted) return;
     final next = state.checklist
         .map((e) => e.id == item.id ? e.copyWith(completed: checked) : e)
         .toList(growable: false);
@@ -119,12 +132,16 @@ class RecommendationsNotifier extends _$RecommendationsNotifier {
   Future<void> addHabit(String name) async {
     final repo = ref.read(recommendationsRepositoryProvider);
     await repo.addHabit(name);
+    // Check if provider is still mounted after async operation
+    if (!ref.mounted) return;
     await refreshBatch();
   }
 
   Future<void> deleteHabit(String id) async {
     final repo = ref.read(recommendationsRepositoryProvider);
     await repo.deleteHabit(id);
+    // Check if provider is still mounted after async operation
+    if (!ref.mounted) return;
     state = state.copyWith(
       checklist: state.checklist.where((e) => e.id != id).toList(),
     );
@@ -141,6 +158,12 @@ class RecommendationsNotifier extends _$RecommendationsNotifier {
   void _startTicker() {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      // Check if provider is still mounted before updating state
+      if (!ref.mounted) {
+        _ticker?.cancel();
+        _ticker = null;
+        return;
+      }
       if (state.timers.isEmpty) {
         _ticker?.cancel();
         return;

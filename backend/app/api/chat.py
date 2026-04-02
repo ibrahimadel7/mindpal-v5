@@ -11,6 +11,7 @@ from app.database.session import get_db_session
 from app.models.conversation import Conversation
 from app.rag.pipeline import RAGPipeline
 from app.schemas.chat import ChatRequest, ChatResponse
+from app.services.llm_service import LLMServiceError
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -41,6 +42,11 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db_session))
             user_id=payload.user_id,
             user_text=payload.message,
         )
+    except LLMServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     except httpx.HTTPStatusError as exc:
         logger.exception("Chat upstream request failed")
         if exc.response.status_code == status.HTTP_401_UNAUTHORIZED:

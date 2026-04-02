@@ -4,251 +4,275 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:mindpal_app/features/insights/providers/insights_providers.dart';
-import 'package:mindpal_app/features/insights/presentation/widgets/day_emotion_widget.dart';
 import 'package:mindpal_app/features/insights/presentation/widgets/emotion_bar_chart.dart';
 import 'package:mindpal_app/features/insights/presentation/widgets/habit_pie_chart.dart';
 import 'package:mindpal_app/features/insights/presentation/widgets/mood_summary_card.dart';
-import 'package:mindpal_app/features/insights/presentation/widgets/streak_card.dart';
+import 'package:mindpal_app/shared/widgets/app_drawer.dart';
 import 'package:mindpal_app/shared/widgets/mindpal_card.dart';
 import 'package:mindpal_app/shared/widgets/shimmer_loader.dart';
 import 'package:mindpal_app/shared/widgets/state_panels.dart';
 import 'package:mindpal_app/theme.dart';
 
-class InsightsScreen extends ConsumerWidget {
+class InsightsScreen extends ConsumerStatefulWidget {
   const InsightsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InsightsScreen> createState() => _InsightsScreenState();
+}
+
+class _InsightsScreenState extends ConsumerState<InsightsScreen> {
+  int _selectedTab = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(insightsProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: '/insights'),
+      drawerEnableOpenDragGesture: true,
       appBar: AppBar(
         title: Text(
-          'Emotional Patterns',
+          _selectedTab == 0 ? 'Emotional Patterns' : 'Habit Frequency',
           style: GoogleFonts.newsreader(
-            fontSize: 32,
+            fontSize: 24,
             fontWeight: FontWeight.w600,
           ),
         ),
-        toolbarHeight: 78,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(30),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              'A curated view of your internal landscape.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: MindPalColors.ink700),
+        centerTitle: false,
+      ),
+      body: state.loading
+          ? const _LoadingBody()
+          : state.error != null
+              ? _ErrorBody(
+                  message: state.error!,
+                  onRetry: ref.read(insightsProvider.notifier).fetchInsights,
+                )
+              : state.emotions.isEmpty &&
+                      state.habits.isEmpty &&
+                      state.time.isEmpty
+                  ? MindPalEmptyPanel(
+                      title: 'No insights yet',
+                      subtitle:
+                          'Start a few chats and reflections to reveal your emotional landscape.',
+                      actionLabel: 'Refresh insights',
+                      icon: Icons.query_stats,
+                      onAction:
+                          ref.read(insightsProvider.notifier).fetchInsights,
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () =>
+                          ref.read(insightsProvider.notifier).fetchInsights(),
+                      child: Column(
+                        children: [
+                          // Subtitle
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _selectedTab == 0
+                                    ? 'A curated view of your internal landscape'
+                                    : 'A curated view of your daily practices',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ),
+                          // Tab selector
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? MindPalColors.darkSurface
+                                    : MindPalColors.surfaceLow,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(
+                                  color: isDark
+                                      ? MindPalColors.darkBorder
+                                      : MindPalColors.clay200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _TabButton(
+                                      label: 'Emotional Patterns',
+                                      isSelected: _selectedTab == 0,
+                                      onTap: () =>
+                                          setState(() => _selectedTab = 0),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _TabButton(
+                                      label: 'Habit Frequency',
+                                      isSelected: _selectedTab == 1,
+                                      onTap: () =>
+                                          setState(() => _selectedTab = 1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Content
+                          Expanded(
+                            child: _selectedTab == 0
+                                ? _EmotionalPatternsTab(state: state)
+                                : _HabitFrequencyTab(state: state),
+                          ),
+                        ],
+                      ),
+                    ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  const _TabButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? MindPalColors.darkSurfaceHigh : MindPalColors.clay200)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(26),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? (isDark
+                      ? MindPalColors.darkTextPrimary
+                      : MindPalColors.ink900)
+                  : (isDark
+                      ? MindPalColors.darkTextSecondary
+                      : MindPalColors.ink700),
             ),
           ),
         ),
       ),
-      body:
-          state.loading
-              ? const _LoadingBody()
-              : state.error != null
-              ? _ErrorBody(
-                message: state.error!,
-                onRetry: ref.read(insightsProvider.notifier).fetchInsights,
-              )
-              : state.emotions.isEmpty &&
-                  state.habits.isEmpty &&
-                  state.time.isEmpty
-              ? MindPalEmptyPanel(
-                title: 'No insights yet',
-                subtitle:
-                    'Start a few chats and reflections to reveal your emotional landscape.',
-                actionLabel: 'Refresh insights',
-                icon: Icons.query_stats,
-                onAction: ref.read(insightsProvider.notifier).fetchInsights,
-              )
-              : RefreshIndicator(
-                onRefresh:
-                    () => ref.read(insightsProvider.notifier).fetchInsights(),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [MindPalColors.surface, MindPalColors.surfaceLow],
-                    ),
-                  ),
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        sliver: SliverList.list(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Row(
-                                children: [
-                                  _DayButton(
-                                    icon: Icons.chevron_left,
-                                    onTap:
-                                        ref
-                                            .read(insightsProvider.notifier)
-                                            .selectPrevDay,
-                                  ),
-                                  const Spacer(),
-                                  Column(
-                                    children: [
-                                      Text(
-                                        DateFormat('EEEE').format(
-                                          state.selectedTimeInsight?.date ??
-                                              DateTime.now(),
-                                        ),
-                                        style:
-                                            Theme.of(
-                                              context,
-                                            ).textTheme.labelSmall,
-                                      ),
-                                      Text(
-                                        DateFormat('MMMM d').format(
-                                          state.selectedTimeInsight?.date ??
-                                              DateTime.now(),
-                                        ),
-                                        style: GoogleFonts.newsreader(
-                                          fontSize: 22,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Spacer(),
-                                  _DayButton(
-                                    icon: Icons.chevron_right,
-                                    onTap:
-                                        ref
-                                            .read(insightsProvider.notifier)
-                                            .selectNextDay,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            MindPalCard(
-                              radius: 28,
-                              color: MindPalColors.surfaceLow,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Emotion Frequency',
-                                    style: GoogleFonts.newsreader(fontSize: 27),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  EmotionBarChart(items: state.emotions),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final wide = constraints.maxWidth >= 640;
-                                if (!wide) {
-                                  return Column(
-                                    children: [
-                                      MoodSummaryCard(summary: state.summary),
-                                      const SizedBox(height: 12),
-                                      StreakCard(streak: state.summary.streak),
-                                    ],
-                                  );
-                                }
+    );
+  }
+}
 
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: MoodSummaryCard(
-                                        summary: state.summary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: StreakCard(
-                                        streak: state.summary.streak,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            MindPalCard(
-                              radius: 28,
-                              color: MindPalColors.surfaceLow,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Habit Frequency',
-                                    style: GoogleFonts.newsreader(fontSize: 27),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  HabitPieChart(habits: state.habits),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            MindPalCard(
-                              radius: 28,
-                              color: MindPalColors.surfaceLow,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Time Snapshot',
-                                        style: GoogleFonts.newsreader(
-                                          fontSize: 27,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  if (state.selectedTimeInsight != null)
-                                    Text(
-                                      DateFormat(
-                                        'h a',
-                                      ).format(state.selectedTimeInsight!.date),
-                                    ),
-                                  const SizedBox(height: 12),
-                                  DayEmotionWidget(
-                                    items:
-                                        state.selectedTimeInsight?.items ??
-                                        const [],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              'The quiet mind is a vessel for self-discovery.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.newsreader(
-                                fontSize: 20,
-                                fontStyle: FontStyle.italic,
-                                color: MindPalColors.ink700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+class _EmotionalPatternsTab extends ConsumerWidget {
+  const _EmotionalPatternsTab({required this.state});
+
+  final InsightsState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      children: [
+        // Date selector
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark
+                ? MindPalColors.darkSurface
+                : Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: isDark ? MindPalColors.darkBorder : MindPalColors.clay100,
+            ),
+          ),
+          child: Row(
+            children: [
+              _DayButton(
+                icon: Icons.chevron_left,
+                onTap: ref.read(insightsProvider.notifier).selectPrevDay,
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    DateFormat('EEEE, MMMM d').format(
+                      state.selectedTimeInsight?.date ?? DateTime.now(),
+                    ),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? MindPalColors.darkTextPrimary
+                          : MindPalColors.ink900,
+                    ),
                   ),
                 ),
               ),
+              _DayButton(
+                icon: Icons.chevron_right,
+                onTap: ref.read(insightsProvider.notifier).selectNextDay,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Today's Resonance Card
+        MoodSummaryCard(summary: state.summary),
+        const SizedBox(height: 16),
+
+        // Emotion Frequency Card
+        MindPalCard(
+          radius: 24,
+          color: isDark ? MindPalColors.darkSurface : MindPalColors.surfaceLow,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Emotion Frequency',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? MindPalColors.darkTextPrimary
+                      : MindPalColors.ink900,
+                ),
+              ),
+              const SizedBox(height: 20),
+              EmotionBarChart(items: state.emotions),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HabitFrequencyTab extends StatelessWidget {
+  const _HabitFrequencyTab({required this.state});
+
+  final InsightsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      child: HabitPieChart(habits: state.habits),
     );
   }
 }
@@ -261,17 +285,24 @@ class _DayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
-      width: 40,
-      height: 40,
+      width: 36,
+      height: 36,
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           padding: EdgeInsets.zero,
-          side: const BorderSide(color: MindPalColors.clay200),
+          side: BorderSide(
+            color: isDark ? MindPalColors.darkBorder : MindPalColors.clay200,
+          ),
           shape: const CircleBorder(),
         ),
-        child: Icon(icon, size: 18),
+        child: Icon(
+          icon,
+          size: 18,
+          color: isDark ? MindPalColors.darkTextSecondary : MindPalColors.ink800,
+        ),
       ),
     );
   }
@@ -282,16 +313,20 @@ class _LoadingBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: const [
-          ShimmerLoader(width: double.infinity, height: 230, radius: 24),
-          SizedBox(height: 20),
-          ShimmerLoader(width: double.infinity, height: 150, radius: 20),
-          SizedBox(height: 20),
-          ShimmerLoader(width: double.infinity, height: 200, radius: 24),
-        ],
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            children: const [
+              ShimmerLoader(width: double.infinity, height: 48, radius: 30),
+              SizedBox(height: 20),
+              ShimmerLoader(width: double.infinity, height: 250, radius: 24),
+              SizedBox(height: 16),
+              ShimmerLoader(width: double.infinity, height: 150, radius: 24),
+            ],
+          ),
+        ),
       ),
     );
   }

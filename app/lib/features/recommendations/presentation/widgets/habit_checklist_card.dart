@@ -43,7 +43,10 @@ class _HabitChecklistCardState extends State<HabitChecklistCard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: MindPalColors.surfaceLow,
+        color:
+            context.isDark
+                ? MindPalColors.darkSurface
+                : MindPalColors.surfaceLow,
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(

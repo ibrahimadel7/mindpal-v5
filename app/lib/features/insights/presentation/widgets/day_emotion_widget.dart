@@ -33,8 +33,14 @@ class DayEmotionWidget extends StatelessWidget {
                     child: LinearProgressIndicator(
                       minHeight: 6,
                       value: (item.percent / 100).clamp(0, 1),
-                      color: MindPalColors.clay300,
-                      backgroundColor: MindPalColors.clay100,
+                      color:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? MindPalColors.darkAccent
+                              : MindPalColors.clay300,
+                      backgroundColor:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? MindPalColors.darkBorder
+                              : MindPalColors.clay100,
                     ),
                   ),
                 ],

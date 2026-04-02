@@ -1,6 +1,22 @@
+import logging
 from functools import lru_cache
-from pydantic import Field
+from pathlib import Path
+
+from dotenv import load_dotenv
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# Resolve the path to the .env file relative to this config file's location.
+# This ensures the .env file is found regardless of the current working directory.
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_ENV_FILE_PATH = _BACKEND_DIR / ".env"
+
+# Explicitly load the .env file at module import time.
+# This ensures environment variables are available before pydantic-settings
+# attempts to read them, regardless of how the application is started.
+load_dotenv(dotenv_path=_ENV_FILE_PATH, override=False)
 
 
 class Settings(BaseSettings):
@@ -48,7 +64,65 @@ class Settings(BaseSettings):
         alias="CORS_ORIGIN_REGEX",
     )
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(_ENV_FILE_PATH),
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+    )
+
+    @field_validator("groq_api_key", mode="after")
+    @classmethod
+    def validate_groq_api_key(cls, value: str) -> str:
+        """Validate that the Groq API key is set and not a placeholder value."""
+        # Define exact placeholder values (lowercase for comparison)
+        placeholder_values = {
+            "",
+            "your_groq_api_key_here",
+            "your-api-key-here",
+            "your_groq_key_here",
+            "replace_with_your_groq_api_key",
+            "gsk_xxx",  # Only reject exact 'gsk_xxx' placeholder, not valid keys
+        }
+        
+        stripped = value.strip()
+        
+        # Debug logging to help users understand what's being loaded
+        logger.debug(f"GROQ_API_KEY raw value: '{value}' (length: {len(value)})")
+        logger.debug(f"GROQ_API_KEY stripped value: '{stripped}' (length: {len(stripped)})")
+        
+        # Check for empty string
+        if not stripped:
+            logger.warning(
+                "GROQ_API_KEY is empty. "
+                "LLM features will fall back to local heuristics. "
+                "Set a valid key in %s or via the GROQ_API_KEY environment variable.",
+                _ENV_FILE_PATH,
+            )
+            return ""
+        
+        # Check for exact placeholder match (case-insensitive)
+        if stripped.lower() in {v.lower() for v in placeholder_values}:
+            logger.warning(
+                "GROQ_API_KEY is still a placeholder value ('%s'). "
+                "LLM features will fall back to local heuristics. "
+                "Set a valid key in %s or via the GROQ_API_KEY environment variable.",
+                stripped,
+                _ENV_FILE_PATH,
+            )
+            return ""
+        
+        # Valid key - must be at least 20 characters and start with 'gsk_' (actual Groq key format)
+        if not stripped.lower().startswith("gsk_"):
+            logger.warning(
+                "GROQ_API_KEY does not appear to be a valid Groq API key format. "
+                "Expected format: gsk_... "
+                "LLM features may not work correctly.",
+            )
+            # Don't return empty - let it through but warn (more lenient)
+        
+        logger.info(f"GROQ_API_KEY configured successfully (length: {len(stripped)})")
+        return stripped
 
 
 @lru_cache

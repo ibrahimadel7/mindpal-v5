@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:mindpal_app/features/chat/domain/models.dart';
 import 'package:mindpal_app/features/chat/providers/chat_providers.dart';
 import 'package:mindpal_app/features/chat/presentation/widgets/chat_input.dart';
 import 'package:mindpal_app/features/chat/presentation/widgets/message_bubble.dart';
 import 'package:mindpal_app/features/chat/presentation/widgets/suggestion_chips.dart';
+import 'package:mindpal_app/shared/widgets/app_drawer.dart';
 import 'package:mindpal_app/shared/widgets/state_panels.dart';
 import 'package:mindpal_app/theme.dart';
 
@@ -44,6 +44,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _handleSend() async {
     final text = _controller.text;
+    if (text.trim().isEmpty) return;
     _controller.clear();
     await ref.read(chatProvider.notifier).send(text);
   }
@@ -68,6 +69,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ];
 
     return Scaffold(
+      drawerEnableOpenDragGesture: true,
+      drawer: const AppDrawer(currentRoute: '/chat'),
       appBar: AppBar(
         title: const Text('MindPal'),
         bottom: PreferredSize(
@@ -77,7 +80,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: Text(
               'YOUR EMOTIONAL JOURNAL',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: MindPalColors.ink700,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 letterSpacing: 1.4,
                 fontSize: 11,
               ),
@@ -85,14 +88,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
         ),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [MindPalColors.surface, MindPalColors.surfaceLow],
-          ),
-        ),
+      body: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: Column(
           children: [
             Expanded(
@@ -108,8 +105,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   onRetry: ref.read(chatProvider.notifier).ensureConversation,
                 ),
                 (_, true, false) => _EmptyState(
-                  controller: _controller,
-                  onSend: _handleSend,
                   onSuggestion: (text) {
                     _controller.text = text;
                     _handleSend();
@@ -128,7 +123,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ),
               },
             ),
-            if (state.error != null)
+            if (state.error != null && messages.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -140,9 +135,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ),
               ),
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                MediaQuery.of(context).padding.bottom + 12,
+              ),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withValues(alpha: 0.92),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(28),
                 ),
@@ -162,36 +164,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.controller,
-    required this.onSend,
-    required this.onSuggestion,
-  });
+  const _EmptyState({required this.onSuggestion});
 
-  final TextEditingController controller;
-  final VoidCallback onSend;
   final ValueChanged<String> onSuggestion;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Good morning. Take a moment to check in with yourself. How are you feeling as you start your day?',
               textAlign: TextAlign.center,
-              style: GoogleFonts.newsreader(
-                fontSize: 46,
-                color: MindPalColors.ink900,
-                height: 1.1,
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                fontSize: 36, // Reduced from 46 for better fit
               ),
             ),
-            const SizedBox(height: 24),
-            ChatInput(controller: controller, onSend: onSend),
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
             SuggestionChips(onSelect: onSuggestion),
           ],
         ),

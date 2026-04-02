@@ -12,7 +12,10 @@ class StreakCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: MindPalColors.inkDeep,
+        color:
+            Theme.of(context).brightness == Brightness.dark
+                ? MindPalColors.darkSurfaceHigh
+                : MindPalColors.inkDeep,
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(

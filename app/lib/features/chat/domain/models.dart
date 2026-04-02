@@ -1,12 +1,14 @@
 class Conversation {
-  const Conversation({required this.id, required this.createdAt});
+  const Conversation({required this.id, required this.createdAt, this.title});
 
   final String id;
   final DateTime createdAt;
+  final String? title;
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
     return Conversation(
       id: json['id'].toString(),
+      title: json['title']?.toString(),
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),

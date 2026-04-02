@@ -28,7 +28,7 @@ final class ConversationsProvider
         argument: null,
         retry: null,
         name: r'conversationsProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -48,7 +48,7 @@ final class ConversationsProvider
   }
 }
 
-String _$conversationsHash() => r'e4ac98dbed0aa21bb45285486125499ef24a70e0';
+String _$conversationsHash() => r'97b490de7fa132e87c4fe042315f342f66a210c2';
 
 @ProviderFor(ChatNotifier)
 final chatProvider = ChatNotifierProvider._();
@@ -61,7 +61,7 @@ final class ChatNotifierProvider
         argument: null,
         retry: null,
         name: r'chatProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -82,7 +82,7 @@ final class ChatNotifierProvider
   }
 }
 
-String _$chatNotifierHash() => r'd7cbafa9f3a475c8009b928e5ff79dc7e84aee19';
+String _$chatNotifierHash() => r'056555b9870d37cb463f1dc2e585bbf6f5df2c1c';
 
 abstract class _$ChatNotifier extends $Notifier<ChatState> {
   ChatState build();

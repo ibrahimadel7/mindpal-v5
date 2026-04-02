@@ -11,41 +11,52 @@ class MoodSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: MindPalColors.clay100.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(28),
+        color: isDark
+            ? MindPalColors.darkSurfaceMid
+            : MindPalColors.clay100.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "TODAY'S RESONANCE",
-            style: Theme.of(context).textTheme.labelSmall,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: isDark
+                  ? MindPalColors.darkTextSecondary
+                  : MindPalColors.ink700,
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             'Your heart feels ${summary.mood.toLowerCase()} today.',
             style: GoogleFonts.newsreader(
-              fontSize: 33,
-              color: MindPalColors.ink900,
-              height: 1.15,
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+              color: isDark
+                  ? MindPalColors.darkTextPrimary
+                  : MindPalColors.ink900,
+              height: 1.2,
             ),
           ),
-          const SizedBox(height: 6),
-          Text('Based on ${summary.entries} insight entries'),
-          if (summary.dominantEmotion != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              summary.dominantEmotion!.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: MindPalColors.ink700,
-              ),
+          const SizedBox(height: 10),
+          Text(
+            'Based on ${summary.entries} insight ${summary.entries == 1 ? 'entry' : 'entries'}',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              color: isDark
+                  ? MindPalColors.darkTextSecondary
+                  : MindPalColors.ink700,
             ),
-          ],
+          ),
         ],
       ),
     );

@@ -6,6 +6,7 @@ import 'package:mindpal_app/features/recommendations/providers/recommendations_p
 import 'package:mindpal_app/features/recommendations/presentation/widgets/category_selector.dart';
 import 'package:mindpal_app/features/recommendations/presentation/widgets/habit_checklist_card.dart';
 import 'package:mindpal_app/features/recommendations/presentation/widgets/recommendation_card.dart';
+import 'package:mindpal_app/shared/widgets/app_drawer.dart';
 import 'package:mindpal_app/shared/widgets/pill_button.dart';
 import 'package:mindpal_app/shared/widgets/shimmer_loader.dart';
 import 'package:mindpal_app/shared/widgets/state_panels.dart';
@@ -20,6 +21,8 @@ class RecommendationsScreen extends ConsumerWidget {
     final notifier = ref.read(recommendationsProvider.notifier);
 
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: '/recommendations'),
+      drawerEnableOpenDragGesture: true,
       appBar: AppBar(
         title: Text(
           'Today',
@@ -57,13 +60,7 @@ class RecommendationsScreen extends ConsumerWidget {
               : RefreshIndicator(
                 onRefresh: notifier.refreshBatch,
                 child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [MindPalColors.surface, MindPalColors.surfaceLow],
-                    ),
-                  ),
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
@@ -117,17 +114,25 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            MindPalColors.recommendationGradientStart,
-            MindPalColors.recommendationGradientEnd,
-          ],
-        ),
+        color: isDark ? MindPalColors.darkSurfaceMid : null,
+        gradient:
+            isDark
+                ? null
+                : const LinearGradient(
+                  colors: [
+                    MindPalColors.recommendationGradientStart,
+                    MindPalColors.recommendationGradientEnd,
+                  ],
+                ),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: MindPalColors.clay200),
+        border: Border.all(
+          color: isDark ? MindPalColors.darkBorder : MindPalColors.clay200,
+        ),
       ),
       child: Row(
         children: [
@@ -135,11 +140,14 @@ class _HeaderCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'RECOMMENDATIONS',
                   style: TextStyle(
                     fontSize: 11,
-                    color: MindPalColors.ink700,
+                    color:
+                        isDark
+                            ? MindPalColors.darkTextSecondary
+                            : MindPalColors.ink700,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -149,7 +157,10 @@ class _HeaderCard extends StatelessWidget {
                   style: GoogleFonts.newsreader(
                     fontSize: 34,
                     fontWeight: FontWeight.w600,
-                    color: MindPalColors.ink900,
+                    color:
+                        isDark
+                            ? MindPalColors.darkTextPrimary
+                            : MindPalColors.ink900,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -164,7 +175,10 @@ class _HeaderCard extends StatelessWidget {
             width: 110,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.85),
+              color:
+                  isDark
+                      ? MindPalColors.darkSurfaceHigh
+                      : Colors.white.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
@@ -182,8 +196,14 @@ class _HeaderCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: percent / 100,
                     minHeight: 4,
-                    backgroundColor: MindPalColors.clay100,
-                    color: MindPalColors.ink900,
+                    backgroundColor:
+                        isDark
+                            ? MindPalColors.darkBorder
+                            : MindPalColors.clay100,
+                    color:
+                        isDark
+                            ? MindPalColors.darkTextPrimary
+                            : MindPalColors.ink900,
                   ),
                 ),
               ],
@@ -202,19 +222,22 @@ class _TimerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: MindPalColors.timerCardBg,
+        color:
+            isDark ? MindPalColors.darkSurfaceHigh : MindPalColors.timerCardBg,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         '$seconds s',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w700,
-          color: MindPalColors.ink900,
+          color: isDark ? MindPalColors.darkTextPrimary : MindPalColors.ink900,
         ),
       ),
     );

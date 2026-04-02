@@ -1,10 +1,17 @@
 import 'package:isar/isar.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:mindpal_app/shared/services/storage_interface.dart';
+import 'package:mindpal_app/shared/services/storage_stub.dart'
+    if (dart.library.html) 'package:mindpal_app/shared/services/storage_web.dart'
+    if (dart.library.io) 'package:mindpal_app/shared/services/storage_mobile.dart';
 
 class LocalCacheService {
   Isar? _isar;
   bool _disabled = false;
+  StorageInterface? _storage;
+
+  /// Returns the platform-specific storage implementation.
+  StorageInterface get storage => _storage ??= createStorage();
 
   Future<Isar?> instance() async {
     // Web builds in this project use an in-memory chat cache only.
@@ -18,10 +25,10 @@ class LocalCacheService {
     }
 
     try {
-      final dir = await getApplicationSupportDirectory();
+      final dirPath = await storage.getStorageDirectoryPath();
       _isar = await Isar.open(
         <CollectionSchema>[],
-        directory: dir.path,
+        directory: dirPath,
         name: 'mindpal_cache',
       );
       return _isar!;

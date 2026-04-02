@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,7 +74,7 @@ class ChatMemoryService:
 
         if existing is not None:
             existing.summary = summary
-            existing.created_at = datetime.utcnow()
+            existing.created_at = datetime.now(UTC)
             await db.flush()
             await self.prune_user_memories(db, user_id=user_id)
             return existing

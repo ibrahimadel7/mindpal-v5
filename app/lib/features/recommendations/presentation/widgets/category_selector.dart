@@ -42,7 +42,10 @@ class CategorySelector extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  backgroundColor: MindPalColors.surfaceHigh,
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? MindPalColors.darkSurfaceHigh
+                          : MindPalColors.surfaceHigh,
                   showCheckmark: false,
                 ),
               ),

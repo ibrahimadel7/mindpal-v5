@@ -12,72 +12,103 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final bubble = Container(
-      constraints: const BoxConstraints(maxWidth: 290),
+      constraints: BoxConstraints(
+        maxWidth: screenWidth * 0.75, // Responsive width
+      ),
       decoration: BoxDecoration(
-        color: isUser ? MindPalColors.clay200 : Colors.white,
+        color:
+            isDark
+                ? (isUser
+                    ? MindPalColors.darkSurfaceMid
+                    : MindPalColors.darkSurface)
+                : (isUser ? MindPalColors.clay200 : Colors.white),
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(20),
           topRight: const Radius.circular(20),
           bottomLeft: Radius.circular(isUser ? 20 : 6),
           bottomRight: Radius.circular(isUser ? 6 : 20),
         ),
-        border: isUser ? null : Border.all(color: MindPalColors.clay200),
+        border:
+            isUser
+                ? null
+                : Border.all(
+                  color:
+                      isDark ? MindPalColors.darkBorder : MindPalColors.clay200,
+                ),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             message.text,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.5,
-              color: MindPalColors.ink900,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.4),
           ),
           const SizedBox(height: 6),
           Text(
             DateFormat('h:mm a').format(message.createdAt),
-            style: const TextStyle(
-              fontSize: 11,
-              color: MindPalColors.ink700,
-            ).copyWith(color: MindPalColors.ink700.withValues(alpha: 0.7)),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontSize: 10),
           ),
         ],
       ),
     );
 
     if (isUser) {
-      return Align(alignment: Alignment.centerRight, child: bubble);
+      return Padding(
+        padding: const EdgeInsets.only(
+          left: 40,
+        ), // Space for MP avatar on other side
+        child: Align(alignment: Alignment.centerRight, child: bubble),
+      );
     }
 
     return Align(
       alignment: Alignment.centerLeft,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: MindPalColors.sand100,
-              shape: BoxShape.circle,
-            ),
-            child: const Text(
-              'MP',
-              style: TextStyle(
-                color: MindPalColors.ink700,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.only(top: 4),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color:
+                    isDark
+                        ? MindPalColors.darkSurfaceHigh
+                        : MindPalColors.sand100,
+                shape: BoxShape.circle,
+                border:
+                    isDark ? Border.all(color: MindPalColors.darkBorder) : null,
+              ),
+              child: Text(
+                'MP',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color:
+                      isDark
+                          ? MindPalColors.darkTextPrimary
+                          : MindPalColors.ink900,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(child: bubble),
-        ],
+            const SizedBox(width: 8),
+            Flexible(child: bubble),
+          ],
+        ),
       ),
     );
   }

@@ -40,6 +40,19 @@ class ChatRepository {
     );
   }
 
+  Future<List<Message>> fetchMessages(String conversationId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/conversations/$conversationId/messages',
+      queryParameters: <String, Object?>{'user_id': kUserId},
+    );
+    final raw =
+        response.data?['messages'] as List<dynamic>? ?? const <dynamic>[];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map((json) => Message.fromJson(json, conversationId: conversationId))
+        .toList(growable: false);
+  }
+
   Future<String> sendMessage({
     required String conversationId,
     required String message,

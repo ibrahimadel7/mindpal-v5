@@ -16,14 +16,17 @@ class ShimmerLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Shimmer.fromColors(
-      baseColor: MindPalColors.clay100,
-      highlightColor: MindPalColors.sand50,
+      baseColor: isDark ? MindPalColors.darkSurfaceMid : MindPalColors.clay100,
+      highlightColor:
+          isDark ? MindPalColors.darkSurfaceHigh : MindPalColors.sand50,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: MindPalColors.clay100,
+          color: isDark ? MindPalColors.darkSurfaceMid : MindPalColors.clay100,
           borderRadius: BorderRadius.circular(radius),
         ),
       ),
