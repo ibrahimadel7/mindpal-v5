@@ -21,3 +21,5 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     habits = relationship("UserHabit", back_populates="user", cascade="all, delete-orphan")
+    memory_profile = relationship("UserMemory", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    memory_entries = relationship("UserMemoryEntry", back_populates="user", cascade="all, delete-orphan")

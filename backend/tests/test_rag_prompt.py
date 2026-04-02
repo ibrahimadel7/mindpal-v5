@@ -15,6 +15,12 @@ class RagPromptTests(unittest.TestCase):
             cross_conversation_history_block="conv#3 2026-03-09T21:00:00 user: I felt anxious before bed",
             similar_messages=["past sample"],
             kb_docs=["kb sample"],
+            kb_entries=[
+                {
+                    "content": "Try a 2-minute grounding exercise before sleep.",
+                    "metadata": {"title": "Sleep Grounding", "category": "coping", "tags": "sleep,stress"},
+                }
+            ],
             emotion_stats=[{"label": "anxiety", "count": 4}],
             habit_stats=[{"habit": "procrastinating", "count": 3}],
             time_patterns=[{"hour_of_day": 22, "top_emotion": "anxiety", "message_count": 2}],
@@ -38,9 +44,11 @@ class RagPromptTests(unittest.TestCase):
         self.assertIn("Habit-emotion associations (historical co-occurrence, not causation)", prompt)
         self.assertIn("Use current detections first", prompt)
         self.assertIn("Do not present associations as medical or causal conclusions", prompt)
+        self.assertIn("Knowledge base context", prompt)
+        self.assertIn("Do NOT provide clinical diagnosis", prompt)
         self.assertIn("User history across conversations (same user only)", prompt)
         self.assertIn("Summarize findings unless the user explicitly asks for direct quotes or timestamps", prompt)
-        self.assertIn("Keep responses to 1-2 short sentences unless the user asks for more detail", prompt)
+        self.assertIn("Default: 1-3 sentences", prompt)
 
     def test_prompt_omits_cross_conversation_history_when_not_recall(self):
         pipeline = object.__new__(RAGPipeline)
@@ -51,6 +59,7 @@ class RagPromptTests(unittest.TestCase):
             cross_conversation_history_block="conv#2 user: old message",
             similar_messages=["past sample"],
             kb_docs=["kb sample"],
+            kb_entries=[],
             emotion_stats=[{"label": "neutral", "count": 1}],
             habit_stats=[],
             time_patterns=[],

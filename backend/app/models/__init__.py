@@ -8,6 +8,7 @@ from app.models.user_chat_memory import UserChatMemory
 from app.models.user_habit import UserHabit
 from app.models.user_habit_check import UserHabitCheck
 from app.models.user import User
+from app.models.user_memory import MemoryCategory, UserMemory, UserMemoryAuditLog, UserMemoryEntry
 
 __all__ = [
 	"User",
@@ -20,4 +21,8 @@ __all__ = [
 	"RecommendationInteraction",
 	"UserHabit",
 	"UserHabitCheck",
+	"MemoryCategory",
+	"UserMemory",
+	"UserMemoryEntry",
+	"UserMemoryAuditLog",
 ]

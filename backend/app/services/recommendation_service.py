@@ -19,6 +19,7 @@ from app.models.user_chat_memory import UserChatMemory
 from app.models.user_habit import UserHabit
 from app.models.user_habit_check import UserHabitCheck
 from app.services.llm_service import LLMService
+from app.services.vector_service import VectorService
 
 
 def _utc_now() -> datetime:
@@ -33,6 +34,7 @@ class RecommendationContext:
     recent_memories: list[str]
     active_habits: list[dict[str, Any]]
     recent_interactions: list[dict[str, Any]]
+    who_entries: list[dict[str, Any]]
 
 
 class RecommendationService:
@@ -40,12 +42,14 @@ class RecommendationService:
         self,
         llm_service: LLMService | None = None,
         analytics_service: TimePatternAnalytics | None = None,
+        vector_service: VectorService | None = None,
         *,
         now_provider: callable | None = None,
     ) -> None:
         self.settings = get_settings()
         self.llm = llm_service or LLMService()
         self.analytics = analytics_service or TimePatternAnalytics()
+        self.vector = vector_service or VectorService(self.llm)
         self.now_provider = now_provider or _utc_now
 
     async def get_or_create_today_batch(
@@ -92,6 +96,7 @@ class RecommendationService:
                 "recent_memories": context.recent_memories,
                 "active_habits": context.active_habits,
                 "recent_interactions": context.recent_interactions,
+                "who_entries": context.who_entries,
             },
         )
         db.add(batch)
@@ -329,7 +334,13 @@ class RecommendationService:
             batch_id=None,
             item_id=habit.source_recommendation_item_id,
             event_type="habit_checked" if completed else "habit_unchecked",
-            payload={"habit_id": habit.id, "date": target_date.isoformat()},
+            payload={
+                "habit_id": habit.id,
+                "habit_name": habit.name,
+                "habit_category": habit.category,
+                "date": target_date.isoformat(),
+                "completed": completed,
+            },
         )
         await db.commit()
         await db.refresh(check)
@@ -370,6 +381,16 @@ class RecommendationService:
             )
         ).scalars().all()
 
+        dominant_emotions = [str(row.get("label", "")).strip().lower() for row in emotion_stats[:3]]
+        dominant_habits = [str(row.get("habit", "")).strip().lower() for row in habit_stats[:3]]
+        query = self._build_who_query(dominant_emotions=dominant_emotions, dominant_habits=dominant_habits)
+        who_entries = await self.vector.search_knowledge_entries(
+            query,
+            5,
+            tags=[*dominant_emotions, *dominant_habits],
+            include_crisis=self._should_include_crisis(dominant_emotions),
+        )
+
         return RecommendationContext(
             emotion_stats=emotion_stats[:4],
             habit_stats=habit_stats[:4],
@@ -383,6 +404,7 @@ class RecommendationService:
                 {"event_type": row.event_type, "payload": row.event_payload_json, "created_at": row.created_at.isoformat()}
                 for row in recent_interactions
             ],
+            who_entries=who_entries,
         )
 
     async def _generate_items(self, *, category: str, context: RecommendationContext) -> list[dict[str, Any]]:
@@ -390,25 +412,71 @@ class RecommendationService:
             return self._fallback_items(category=category, context=context)
 
         system_prompt = (
-            "You generate concise mental wellness recommendations. Return JSON only with this shape: "
-            "{'items':[{'kind':'timed_action|habit|instant_action|reflection','title':str,'rationale':str,"
-            "'action_payload':object,'estimated_duration_minutes':int|null,'follow_up_text':str|null}]}. "
-            "Generate exactly 4 items. Keep titles under 60 characters. Make the recommendations actionable, calm, and specific."
+            "You generate concise, personalized mental wellness recommendations.\n\n"
+            "Return ONLY JSON:\n"
+            "{\n"
+            "\"items\":[\n"
+            "{\n"
+            "\"kind\":\"timed_action|habit|instant_action|reflection\",\n"
+            "\"title\":str,\n"
+            "\"rationale\":str,\n"
+            "\"action_payload\":object,\n"
+            "\"estimated_duration_minutes\":int|null,\n"
+            "\"follow_up_text\":str|null\n"
+            "}\n"
+            "]\n"
+            "}\n\n"
+            "Generate exactly 4 items.\n\n"
+            "Guidelines:\n\n"
+            "- Base recommendations on patterns (not generic advice)\n"
+            "- Use:\n"
+            "  - emotion trends\n"
+            "  - habit frequency\n"
+            "  - time patterns\n"
+            "  - habit-emotion links\n"
+            "- Prefer small, realistic actions\n"
+            "- Avoid repetition from recent interactions\n"
+            "- Keep tone calm and non-prescriptive\n"
+            "- Use WHO knowledge context when relevant for practical advice\n"
+            "- Return exactly 4 actionable suggestions with rationale and duration when applicable"
         )
+        who_context = [
+            {
+                "title": str((entry.get("metadata") or {}).get("title") or "WHO guidance"),
+                "category": str((entry.get("metadata") or {}).get("category") or "education"),
+                "tags": str((entry.get("metadata") or {}).get("tags") or ""),
+                "content": str(entry.get("content") or ""),
+            }
+            for entry in context.who_entries[:5]
+        ]
         user_prompt = (
-            f"Selected category: {category}\n"
-            "Use this user context:\n"
+            "User context:\n"
             f"{json.dumps({
+                'selected_category': category,
                 'emotion_stats': context.emotion_stats,
                 'habit_stats': context.habit_stats,
                 'time_patterns': context.time_patterns,
                 'recent_memories': context.recent_memories,
                 'active_habits': context.active_habits,
                 'recent_interactions': context.recent_interactions,
+                'who_knowledge_context': who_context,
             }, default=str)}"
         )
         payload = await self.llm.generate_structured_json(system_prompt, user_prompt, max_tokens=700)
         return self._normalize_items(payload.get("items"), category=category, context=context)
+
+    @staticmethod
+    def _build_who_query(*, dominant_emotions: list[str], dominant_habits: list[str]) -> str:
+        emotion_text = ", ".join([item for item in dominant_emotions if item]) or "stress"
+        habit_text = ", ".join([item for item in dominant_habits if item]) or "daily habits"
+        return (
+            "practical mental well-being guidance for "
+            f"emotions: {emotion_text}; habits: {habit_text}; coping steps and short reflective prompts"
+        )
+
+    @staticmethod
+    def _should_include_crisis(dominant_emotions: list[str]) -> bool:
+        return any(label in {"fear", "sadness"} for label in dominant_emotions)
 
     def _normalize_items(self, raw_items: Any, *, category: str, context: RecommendationContext) -> list[dict[str, Any]]:
         if not isinstance(raw_items, list):

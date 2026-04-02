@@ -12,6 +12,9 @@ from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.analysis_service import AnalysisService
+from app.agents.data_preprocessor import DataPreprocessor
+from app.agents.intervention_engine import InterventionControl
 from app.analytics.time_patterns import TimePatternAnalytics
 from app.config import get_settings
 from app.models.conversation import Conversation
@@ -23,6 +26,7 @@ from app.services.emotion_service import EmotionService
 from app.services.graph_service import GraphService
 from app.services.habit_service import HabitService
 from app.services.llm_service import LLMService
+from app.services.memory_service import MemoryService
 from app.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
@@ -55,6 +59,8 @@ class RAGPipeline:
         graph_service: GraphService | None = None,
         analytics_service: TimePatternAnalytics | None = None,
         chat_memory_service: ChatMemoryService | None = None,
+        memory_service: MemoryService | None = None,
+        analysis_service: AnalysisService | None = None,
     ) -> None:
         self.settings = get_settings()
         self.llm = llm_service or LLMService()
@@ -64,6 +70,8 @@ class RAGPipeline:
         self.graph = graph_service or GraphService()
         self.analytics = analytics_service or TimePatternAnalytics()
         self.memory = chat_memory_service or ChatMemoryService(self.llm)
+        self.persistent_memory = memory_service or MemoryService(self.llm, self.vector, self.graph)
+        self.analysis = analysis_service or AnalysisService(self.llm)
         self.placeholder_titles = {"New Reflection", "New Conversation"}
         self.max_generated_title_words = 2
 
@@ -305,12 +313,39 @@ class RAGPipeline:
             retrieval_top_k,
             user_id=user_id,
         )
-        kb_docs = await self.vector.search_knowledge(user_text, self.settings.retrieval_top_k_kb)
+        retrieval_tags = self._extract_retrieval_tags(user_text=user_text, emotions=emotions, habits=habits)
+        include_crisis = self._needs_crisis_resource(user_text=user_text, emotions=emotions)
+        kb_entries = await self.vector.search_knowledge_entries(
+            user_text,
+            max(self.settings.retrieval_top_k_kb, 5),
+            tags=retrieval_tags,
+            include_crisis=include_crisis,
+        )
+        kb_docs = [entry["content"] for entry in kb_entries]
         emotion_stats = await self.analytics.emotion_stats(db, user_id=user_id)
         habit_stats = await self.analytics.habit_stats(db, user_id=user_id)
         time_patterns = await self.analytics.time_patterns(db, user_id=user_id)
         habit_emotion_links = await self.analytics.habit_emotion_links(db, user_id=user_id, min_count=2, top_n=12)
         recent_memories = await self.memory.get_recent_memories(db, user_id=user_id)
+        persistent_memories: list[dict[str, Any]] = []
+        if self.settings.memory_injection_enabled:
+            context_embedding = (await self.llm.embed_texts([user_text]))[0]
+            relevant_entries = await self.persistent_memory.query_relevant_memories(
+                db,
+                user_id=user_id,
+                context_embedding=context_embedding,
+                top_k=self.settings.memory_injection_top_k,
+            )
+            persistent_memories = [
+                {
+                    "category": item.category,
+                    "content": item.content,
+                    "relevance_score": item.relevance_score,
+                    "emotional_significance": item.emotional_significance,
+                    "recurrence_count": item.recurrence_count,
+                }
+                for item in relevant_entries
+            ]
 
         history_rows = (
             await db.execute(
@@ -346,16 +381,53 @@ class RAGPipeline:
             cross_conversation_history_block=cross_conversation_history_block,
             similar_messages=similar_messages,
             kb_docs=kb_docs,
+            kb_entries=kb_entries,
             emotion_stats=emotion_stats,
             habit_stats=habit_stats,
             time_patterns=time_patterns,
             habit_emotion_links=habit_emotion_links,
             recent_memories=recent_memories,
+            persistent_memories=persistent_memories,
             emotions=emotions,
             habits=habits,
             recall_intent=recall_intent,
             supportive_mode=supportive_mode,
         )
+
+        # NEW: Run internal pattern analysis before finalizing prompt
+        analysis_context = {
+            "user_text": user_text,
+            "emotions": emotions,
+            "habits": habits,
+            "emotion_stats": emotion_stats,
+            "habit_stats": habit_stats,
+            "time_patterns": time_patterns,
+            "habit_emotion_links": habit_emotion_links,
+            "graph_signals": (
+                DataPreprocessor.preprocess_habit_emotion_links(habit_emotion_links)
+                + DataPreprocessor.preprocess_time_patterns(time_patterns)
+                + DataPreprocessor.preprocess_trend_summaries(emotion_stats, habit_stats)
+            ),
+        }
+
+        analysis = await self.analysis.analyze_patterns(analysis_context)
+
+        # Fetch conversation to check intervention state
+        conversation = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+        conversation = conversation.scalar_one()
+
+        # Decide if intervention should be surfaced
+        should_surface = InterventionControl.should_intervene(
+            analysis=analysis,
+            last_intervention_at=conversation.last_intervention_at,
+            message_count_since_last=conversation.message_count_since_last_intervention,
+            user_state=None,
+        )
+
+        # Inject intervention context if approved
+        if should_surface and analysis.primary_pattern:
+            intervention_injection = InterventionControl.build_intervention_injection(analysis)
+            final_prompt += intervention_injection
 
         return PreparedGenerationContext(
             conversation_id=conversation_id,
@@ -395,6 +467,13 @@ class RAGPipeline:
             habits=context.habits,
             role=MessageRole.ASSISTANT.value,
         )
+
+        # NEW: Update intervention tracking
+        conversation = await db.execute(select(Conversation).where(Conversation.id == context.conversation_id))
+        conversation = conversation.scalar_one()
+        conversation.message_count_since_last_intervention += 1
+        db.add(conversation)
+        await db.flush()
 
         await self._maybe_generate_conversation_title(
             db=db,
@@ -459,10 +538,12 @@ class RAGPipeline:
     @staticmethod
     def _build_title_prompt(*, first_user_text: str, first_assistant_text: str) -> str:
         return (
-            "You write concise reflection titles for journal conversations.\n"
-            "Create exactly one title that summarizes the main theme of this exchange.\n"
-            "Constraints:\n"
+            "You generate concise, meaningful titles for personal reflection conversations.\n\n"
+            "Goal:\n"
+            "Capture the most distinctive theme (emotion, situation, or struggle), not just a generic feeling.\n\n"
+            "Constraints:\n\n"
             "- 1 to 2 words\n"
+            "- specific > generic (e.g., \"Exam Stress\" better than \"Stress\")\n"
             "- one line only\n"
             "- no quotation marks\n"
             "- no trailing punctuation\n\n"
@@ -495,17 +576,20 @@ class RAGPipeline:
         cross_conversation_history_block: str,
         similar_messages: list[str],
         kb_docs: list[str],
+        kb_entries: list[dict[str, Any]],
         emotion_stats: list[dict],
         habit_stats: list[dict],
         time_patterns: list[dict],
         habit_emotion_links: list[dict],
         recent_memories: list[str],
+        persistent_memories: list[dict[str, Any]] | None = None,
         emotions: list[dict],
         habits: list[dict],
         recall_intent: bool,
         supportive_mode: bool,
     ) -> str:
         memory_block = "\n".join(f"- {summary}" for summary in recent_memories) if recent_memories else "- No saved user memories yet."
+        persistent_memory_block = self._format_persistent_memories(persistent_memories or [])
         quote_rule = (
             "The user appears to be asking about past chats. Prioritize historical evidence from the provided history. "
             "Summarize findings unless the user explicitly asks for direct quotes or timestamps."
@@ -519,37 +603,139 @@ class RAGPipeline:
             else ""
         )
         response_style = (
-            "Generate a personalized response with:\n"
-            "1) brief emotional validation\n"
-            "2) one actionable coping or habit suggestion\n"
-            "3) one optional follow-up question\n"
+            "Keep responses calm, non-judgmental, and reflective.\n"
+            "Optionally ask one gentle follow-up question if it helps the user reflect.\n"
             if supportive_mode
-            else "Respond naturally and directly to the user without forced therapeutic framing. "
+            else "Respond naturally and directly to the user without scripted therapeutic framing. "
             "Do not require a follow-up question if it does not fit.\n"
         )
+        knowledge_context = self._format_knowledge_context(kb_entries)
+        if not knowledge_context:
+            knowledge_context = "- No relevant WHO guidance matched this message."
 
         return (
-            "You are MindPal, a supportive mental health assistant. Provide practical, compassionate, "
-            "non-clinical guidance and suggest professional help for crisis situations.\n\n"
+            "You are MindPal, a calm and observant mental health support assistant.\n\n"
+            "Your role:\n\n"
+            "- Help the user reflect\n"
+            "- Gently surface patterns across time, habits, and emotions\n"
+            "- Offer small, practical suggestions when useful\n\n"
+            "--- PRIORITY ORDER ---\n"
+            "Use information in this order:\n\n"
+            "1. Current user message (most important)\n"
+            "2. Recent conversation context\n"
+            "3. Detected current emotions and habits\n"
+            "4. Historical patterns (trends, time patterns, associations)\n"
+            "5. Knowledge base (only if relevant)\n\n"
+            "--- CONTEXT ---\n"
             f"User memories:\n{memory_block}\n\n"
-            f"Recent conversation history:\n{history_block}\n\n"
+            f"Persistent summary context window (semantic, relevant):\n{persistent_memory_block}\n\n"
+            f"Recent conversation:\n{history_block}\n\n"
             f"{cross_history_section}"
             f"Detected current emotions: {emotions}\n"
-            f"Detected habits/behaviors: {habits}\n\n"
-            f"Similar past messages:\n{similar_messages}\n\n"
-            f"Knowledge base context:\n{kb_docs}\n\n"
-            f"Emotion trends:\n{emotion_stats}\n"
-            f"Habit trends:\n{habit_stats}\n"
-            f"Time-based patterns:\n{time_patterns}\n\n"
-            f"Habit-emotion associations (historical co-occurrence, not causation):\n{habit_emotion_links}\n\n"
+            f"Detected habits: {habits}\n\n"
+            f"Emotion trends: {emotion_stats}\n"
+            f"Habit trends: {habit_stats}\n"
+            f"Time patterns: {time_patterns}\n\n"
+            f"Habit-emotion associations (historical co-occurrence, not causation) (non-causal signals):\n{habit_emotion_links}\n\n"
+            "Knowledge base context:\n"
+            f"{knowledge_context}\n\n"
+            "Use this information to provide the user with practical, non-clinical advice, coping strategies, and reflections.\n"
+            "Do NOT provide clinical diagnosis.\n\n"
+            "--- RESPONSE STYLE ---\n\n"
+            "- Start with a brief, natural acknowledgment (not scripted)\n"
+            "- If useful, reflect a pattern: (\"It seems like...\", \"I might be wrong, but...\")\n"
+            "- Optionally connect habits <-> emotions or time patterns\n"
+            "- Suggest actionable habits or coping steps\n"
+            "- Offer one reflection prompt if relevant\n"
+            "- Reference crisis resources only when appropriate\n"
+            "- Optionally ask ONE gentle follow-up question\n\n"
+            "--- RULES ---\n\n"
+            "- Do NOT sound clinical or diagnostic\n"
+            "- Do NOT present correlations as facts\n"
+            "- Do not present associations as medical or causal conclusions\n"
+            "- Avoid repeating obvious statements\n"
+            "- If no meaningful pattern exists -> just respond naturally\n"
+            "- If data is weak -> say \"I might be wrong\"\n\n"
+            "--- LENGTH ---\n"
+            "Default: 1-3 sentences\n"
+            "Only go longer if the user asks for more detail\n\n"
             f"Current user message:\n{user_text}\n\n"
             f"{response_style}"
             f"{quote_rule}\n"
-            "If historical evidence is missing, say so clearly and ask a clarifying question.\n"
-            "Use current detections first, then reference historical associations only as pattern signals. "
-            "Do not present associations as medical or causal conclusions.\n"
-            "Keep responses to 1-2 short sentences unless the user asks for more detail."
+            "Use current detections first, then historical pattern signals.\n"
+            "Keep responses brief unless the user asks for more detail."
         )
+
+    @staticmethod
+    def _format_persistent_memories(entries: list[dict[str, Any]]) -> str:
+        if not entries:
+            return "- No persistent memories matched this message."
+
+        lines: list[str] = []
+        seen: set[str] = set()
+        for entry in entries:
+            content = str(entry.get("content", "")).strip()
+            if not content:
+                continue
+            token = content.lower()
+            if token in seen:
+                continue
+            seen.add(token)
+            lines.append(f"- {content}")
+            if len(lines) >= 6:
+                break
+
+        return "\n".join(lines) if lines else "- No persistent memories matched this message."
+
+    @staticmethod
+    def _extract_retrieval_tags(user_text: str, emotions: list[dict[str, Any]], habits: list[dict[str, Any]]) -> list[str]:
+        tags: set[str] = set()
+        tags.update(str(item.get("label", "")).strip().lower() for item in emotions)
+        tags.update(str(item.get("habit", "")).strip().lower() for item in habits)
+
+        lowered = user_text.lower()
+        keyword_map = {
+            "stress": ["stress", "overwhelmed", "burnout"],
+            "anxiety": ["anxious", "panic", "worry"],
+            "sleep": ["sleep", "insomnia", "bed", "night"],
+            "self-care": ["self care", "self-care", "rest", "recharge"],
+            "focus": ["focus", "distracted", "procrastinat"],
+            "coping": ["cope", "coping", "grounding"],
+        }
+        for tag, keywords in keyword_map.items():
+            if any(keyword in lowered for keyword in keywords):
+                tags.add(tag)
+
+        return [tag for tag in sorted(tags) if tag]
+
+    @staticmethod
+    def _needs_crisis_resource(user_text: str, emotions: list[dict[str, Any]]) -> bool:
+        distress_labels = {"fear", "sadness", "anxiety"}
+        emotion_flag = any(str(item.get("label", "")).strip().lower() in distress_labels for item in emotions)
+        lowered = user_text.lower()
+        crisis_markers = [
+            "self-harm",
+            "harm myself",
+            "suicide",
+            "kill myself",
+            "not safe",
+            "immediate danger",
+            "can't go on",
+        ]
+        text_flag = any(marker in lowered for marker in crisis_markers)
+        return emotion_flag and text_flag
+
+    @staticmethod
+    def _format_knowledge_context(entries: list[dict[str, Any]]) -> str:
+        lines: list[str] = []
+        for idx, entry in enumerate(entries[:5], start=1):
+            metadata = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+            title = str(metadata.get("title") or metadata.get("topic") or f"WHO Guidance {idx}")
+            category = str(metadata.get("category") or "education")
+            tags = str(metadata.get("tags") or "")
+            content = str(entry.get("content") or "").strip()
+            lines.append(f"{idx}. {title} [{category}] tags={tags}: {content}")
+        return "\n".join(lines)
 
     @staticmethod
     def _is_history_recall_query(user_text: str) -> bool:
@@ -585,9 +771,10 @@ class RAGPipeline:
     @staticmethod
     def _build_small_talk_prompt(user_text: str) -> str:
         return (
-            "You are MindPal, a supportive assistant.\n\n"
-            f"User message: {user_text}\n"
-            "Reply with exactly one short, warm sentence and no follow-up question."
+            "You are MindPal, a warm and natural assistant.\n\n"
+            f"User message:\n{user_text}\n\n"
+            "Reply with exactly one short sentence that feels human, relaxed, and slightly varied in tone "
+            "(not repetitive or robotic). No follow-up question."
         )
 
     @staticmethod

@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.message_analysis import MessageAnalysis
+from app.models.user_habit import UserHabit
+from app.models.user_habit_check import UserHabitCheck
 
 
 class TimePatternAnalytics:
@@ -47,7 +49,21 @@ class TimePatternAnalytics:
         counts: Counter[str] = Counter()
         for row in rows:
             for habit in row.get("habits", []):
-                counts[habit["habit"]] += 1
+                label = self._normalize_label(habit.get("habit"))
+                if label:
+                    counts[label] += 1
+
+        completed_habit_names = (
+            await db.execute(
+                select(UserHabit.name)
+                .join(UserHabitCheck, UserHabitCheck.habit_id == UserHabit.id)
+                .where(UserHabit.user_id == user_id, UserHabitCheck.is_completed.is_(True))
+            )
+        ).scalars().all()
+        for habit_name in completed_habit_names:
+            label = self._normalize_label(habit_name)
+            if label:
+                counts[label] += 1
 
         return [{"habit": k, "count": v} for k, v in counts.most_common()]
 
@@ -98,6 +114,18 @@ class TimePatternAnalytics:
                 label = self._normalize_label(habit.get("habit"))
                 if label:
                     habit_counts[label] += 1
+
+        completed_habit_names = (
+            await db.execute(
+                select(UserHabit.name)
+                .join(UserHabitCheck, UserHabitCheck.habit_id == UserHabit.id)
+                .where(UserHabit.user_id == user_id, UserHabitCheck.is_completed.is_(True))
+            )
+        ).scalars().all()
+        for habit_name in completed_habit_names:
+            label = self._normalize_label(habit_name)
+            if label:
+                habit_counts[label] += 1
 
         dominant_emotion = emotion_counts.most_common(1)[0][0] if emotion_counts else None
         dominant_habit = habit_counts.most_common(1)[0][0] if habit_counts else None
@@ -154,6 +182,20 @@ class TimePatternAnalytics:
                 label = self._normalize_label(habit.get("habit"))
                 if label:
                     day_bucket[day_key][label] += 1
+
+        completed_rows = (
+            await db.execute(
+                select(UserHabitCheck.check_date, UserHabit.name)
+                .join(UserHabit, UserHabit.id == UserHabitCheck.habit_id)
+                .where(UserHabit.user_id == user_id, UserHabitCheck.is_completed.is_(True))
+            )
+        ).all()
+
+        for check_date, habit_name in completed_rows:
+            day_key = check_date.isoformat()
+            label = self._normalize_label(habit_name)
+            if label:
+                day_bucket[day_key][label] += 1
 
         result: list[dict] = []
         for day_key in sorted(day_bucket.keys()):

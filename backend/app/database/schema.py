@@ -25,6 +25,14 @@ def _ensure_schema_updates(sync_conn: Connection) -> None:
     if "closed_at" not in columns:
         sync_conn.execute(text("ALTER TABLE conversations ADD COLUMN closed_at DATETIME"))
 
+    if "last_intervention_at" not in columns:
+        sync_conn.execute(text("ALTER TABLE conversations ADD COLUMN last_intervention_at DATETIME"))
+
+    if "message_count_since_last_intervention" not in columns:
+        sync_conn.execute(
+            text("ALTER TABLE conversations ADD COLUMN message_count_since_last_intervention INTEGER NOT NULL DEFAULT 0")
+        )
+
     sync_conn.execute(
         text(
             """
@@ -139,3 +147,80 @@ def _ensure_schema_updates(sync_conn: Connection) -> None:
             "CREATE UNIQUE INDEX IF NOT EXISTS ux_user_habit_checks_habit_date ON user_habit_checks (habit_id, check_date)"
         )
     )
+
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS user_memory (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL UNIQUE,
+                is_paused BOOLEAN NOT NULL DEFAULT 0,
+                context_json JSON NOT NULL DEFAULT '{}',
+                habits_json JSON NOT NULL DEFAULT '[]',
+                emotions_json JSON NOT NULL DEFAULT '[]',
+                goals_json JSON NOT NULL DEFAULT '[]',
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_summarized_at DATETIME,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+    )
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_user_id ON user_memory (user_id)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_is_paused ON user_memory (is_paused)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_updated_at ON user_memory (updated_at)"))
+
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS user_memory_entries (
+                id INTEGER PRIMARY KEY,
+                user_memory_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                category VARCHAR(32) NOT NULL,
+                content TEXT NOT NULL,
+                embedding_json JSON NOT NULL DEFAULT '[]',
+                vector_id VARCHAR(128),
+                relevance_score FLOAT NOT NULL DEFAULT 0.5,
+                emotional_significance FLOAT NOT NULL DEFAULT 0.5,
+                recurrence_count INTEGER NOT NULL DEFAULT 1,
+                source_conversation_id INTEGER,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_memory_id) REFERENCES user_memory(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(source_conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
+            )
+            """
+        )
+    )
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_entries_user_id ON user_memory_entries (user_id)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_entries_category ON user_memory_entries (category)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_entries_is_active ON user_memory_entries (is_active)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_entries_updated_at ON user_memory_entries (updated_at)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_entries_vector_id ON user_memory_entries (vector_id)"))
+
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS user_memory_audit_logs (
+                id INTEGER PRIMARY KEY,
+                entry_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                old_content TEXT,
+                new_content TEXT,
+                old_category VARCHAR(32),
+                new_category VARCHAR(32),
+                reason VARCHAR(64) NOT NULL DEFAULT 'update',
+                changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(entry_id) REFERENCES user_memory_entries(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(entry_id, changed_at)
+            )
+            """
+        )
+    )
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_audit_logs_entry_id ON user_memory_audit_logs (entry_id)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_audit_logs_user_id ON user_memory_audit_logs (user_id)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_memory_audit_logs_changed_at ON user_memory_audit_logs (changed_at)"))

@@ -128,14 +128,19 @@ class ChatMemoryService:
 
     async def _generate_summary(self, transcript: str) -> str:
         prompt = (
-            "Summarize important personal information from this conversation in 2-3 sentences. "
-            "Focus on emotions, struggles, habits, goals, and life events that may help an AI assistant remember the user later.\n"
-            "Constraints:\n"
-            "- Mention only durable or useful personal context\n"
-            "- Do not quote the conversation\n"
-            "- Do not mention the assistant\n"
-            "- Return plain text only\n\n"
-            f"Conversation transcript:\n{transcript}\n\n"
+            "Summarize durable, useful user context from this conversation.\n\n"
+            "Focus on:\n\n"
+            "- recurring emotions or struggles\n"
+            "- ongoing habits or patterns\n"
+            "- goals or intentions\n"
+            "- meaningful life context\n\n"
+            "Guidelines:\n\n"
+            "- 2-3 sentences\n"
+            "- prioritize information that will still matter later\n"
+            "- avoid temporary details unless significant\n"
+            "- no quotes\n"
+            "- no mention of the assistant\n\n"
+            f"Conversation:\n{transcript}\n\n"
             "Memory summary:"
         )
         summary = await self.llm.generate_chat(

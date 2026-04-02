@@ -12,11 +12,16 @@ class EmotionService:
 
     async def detect_emotions(self, message: str) -> EmotionDetectionResult:
         system_prompt = (
-            "You are an emotion extraction system. Return valid JSON only in format "
-            '{"emotions":[{"label":"sadness","confidence":0.8}]}. '
-            "Use only: joy, sadness, anger, fear, anxiety, stress, neutral."
+            "You are an emotion extraction system.\n\n"
+            "Return ONLY valid JSON:\n"
+            '{"emotions":[{"label":"sadness","confidence":0.8}]}\n\n'
+            "Rules:\n\n"
+            "- Use only: joy, sadness, anger, fear, anxiety, stress, neutral\n"
+            "- Extract up to 3 emotions if clearly present\n"
+            "- Confidence must reflect strength of expression, not guesswork\n"
+            "- If unclear -> return \"neutral\" with low confidence"
         )
-        user_prompt = f"Extract emotions from this message: {message}"
+        user_prompt = f"Extract emotions from:\n{message}"
         data = await self.llm.generate_structured_json(system_prompt=system_prompt, user_prompt=user_prompt)
         result = EmotionDetectionResult.model_validate(data)
         filtered = [e for e in result.emotions if e.label in ALLOWED_EMOTIONS]

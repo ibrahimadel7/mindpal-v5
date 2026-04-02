@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./chroma_data"
     chroma_messages_collection: str = "mindpal_messages"
     chroma_kb_collection: str = "mindpal_kb"
+    chroma_memory_collection: str = "mindpal_memory_entries"
 
     graph_state_path: str = "./mindpal_graph.json"
 
@@ -54,6 +55,10 @@ class Settings(BaseSettings):
     memory_summary_max_tokens: int = 120
     memory_summary_temperature: float = 0.1
     memory_summary_min_chars: int = 80
+    memory_injection_enabled: bool = True
+    memory_injection_top_k: int = 5
+    memory_decay_half_life_days: int = 45
+    memory_default_trend_days: int = 30
 
     cors_origins: str = Field(
         default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",

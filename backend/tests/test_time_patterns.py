@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 import unittest
 
 from app.analytics.time_patterns import TimePatternAnalytics
@@ -37,6 +37,30 @@ class _FakeDB:
 
 
 class TimePatternAnalyticsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_habit_stats_merges_chat_and_checklist_completions(self):
+        analytics = TimePatternAnalytics()
+
+        habit_rows = [
+            {"habits": [{"habit": "Procrastinating"}]},
+            {"habits": [{"habit": "Doomscrolling"}, {"habit": "Procrastinating"}]},
+        ]
+        completed_habits = ["Procrastinating", "Hydration"]
+
+        db = _FakeDB([
+            _Result(scalars=habit_rows),
+            _Result(scalars=completed_habits),
+        ])
+
+        stats = await analytics.habit_stats(db, user_id=1)
+        self.assertEqual(
+            stats,
+            [
+                {"habit": "procrastinating", "count": 3},
+                {"habit": "doomscrolling", "count": 1},
+                {"habit": "hydration", "count": 1},
+            ],
+        )
+
     async def test_overview_metrics_and_daily_trends_are_user_scoped_shapes(self):
         analytics = TimePatternAnalytics()
 
@@ -60,8 +84,10 @@ class TimePatternAnalyticsTests(unittest.IsolatedAsyncioTestCase):
 
         db = _FakeDB([
             _Result(rows=rows),  # overview
+            _Result(scalars=["Procrastinating", "Journaling"]),  # completed checklist habits for overview
             _Result(rows=[(r[0], r[1]) for r in rows]),  # daily emotion trends
             _Result(rows=[(r[0], r[2]) for r in rows]),  # daily habit trends
+            _Result(rows=[(date(2026, 3, 10), "Journaling")]),  # completed checklist habits for trend
         ])
 
         overview = await analytics.overview_metrics(db, user_id=1)
@@ -79,7 +105,10 @@ class TimePatternAnalyticsTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([row["date"] for row in habit_trends], ["2026-03-09", "2026-03-10"])
         self.assertEqual(habit_trends[0]["total"], 2)
-        self.assertEqual(habit_trends[1]["total"], 1)
+        self.assertEqual(habit_trends[1]["total"], 2)
+        day_two_habits = {item["habit"]: item["count"] for item in habit_trends[1]["habits"]}
+        self.assertEqual(day_two_habits.get("journaling"), 1)
+        self.assertEqual(day_two_habits.get("procrastinating"), 1)
 
     async def test_habit_emotion_links_computes_strength_and_threshold(self):
         analytics = TimePatternAnalytics()

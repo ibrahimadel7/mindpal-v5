@@ -69,3 +69,15 @@ class GraphService:
                 rows.append({"from": u, "to": v, "weight": attrs.get("weight", 0.0)})
         rows.sort(key=lambda item: item["weight"], reverse=True)
         return rows[:top_k]
+
+    def update_memory_relationships(self, *, habits: list[str], emotions: list[str]) -> None:
+        clean_habits = [item.strip() for item in habits if str(item).strip()]
+        clean_emotions = [item.strip() for item in emotions if str(item).strip()]
+        for emotion in clean_emotions:
+            e_node = f"emotion:{emotion}"
+            self.graph.add_node(e_node, kind="Emotion")
+            for habit in clean_habits:
+                h_node = f"habit:{habit}"
+                self.graph.add_node(h_node, kind="Habit")
+                existing = self.graph.get_edge_data(e_node, h_node, default={}).get("weight", 0.0)
+                self.graph.add_edge(e_node, h_node, relation="correlates", weight=existing + 1.0)

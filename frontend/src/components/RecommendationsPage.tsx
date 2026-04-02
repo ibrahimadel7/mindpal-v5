@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import LoadingScreen from './LoadingScreen'
 import {
   adoptRecommendationItem,
   completeRecommendationItem,
@@ -7,7 +8,6 @@ import {
   deleteHabit,
   generateRecommendations,
   getHabitChecklist,
-  getRecommendationHistory,
   getTodayRecommendations,
   logRecommendationItemInteraction,
   selectRecommendationItem,
@@ -22,10 +22,6 @@ import type {
   RecommendationItem,
 } from '../types/api'
 
-interface RecommendationsPageProps {
-  onOpenNavigation?: () => void
-}
-
 const categories: Array<{ value: RecommendationCategory; label: string }> = [
   { value: 'balance', label: 'Balance' },
   { value: 'calm', label: 'Calm' },
@@ -34,11 +30,20 @@ const categories: Array<{ value: RecommendationCategory; label: string }> = [
   { value: 'reflection', label: 'Reflection' },
 ]
 
-function formatDate(value: string) {
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const categoryContextLines: Record<RecommendationCategory, string> = {
+  balance: 'Based on your recent pattern of balancing effort and recovery.',
+  calm: 'Based on your recent stress patterns and the need to soften the pace.',
+  focus: 'Based on your recent attention patterns and moments of fragmentation.',
+  energy: 'Based on your recent low-energy patterns and movement cues.',
+  reflection: 'Based on your recent reflection patterns and follow-up prompts.',
 }
+
+const moodOptions = [
+  { value: 'calm', emoji: '🙂', label: 'Calm' },
+  { value: 'steady', emoji: '😌', label: 'Steady' },
+  { value: 'mixed', emoji: '😐', label: 'Mixed' },
+  { value: 'heavy', emoji: '😮‍💨', label: 'Heavy' },
+] as const
 
 function formatKind(kind: string) {
   return kind.replaceAll('_', ' ')
@@ -56,187 +61,146 @@ interface CategorySelectorProps {
 
 function CategorySelector({ selectedCategory, onSelect }: CategorySelectorProps) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {categories.map((category) => {
-        const isSelected = category.value === selectedCategory
-        return (
-          <button
-            key={category.value}
-            type="button"
-            onClick={() => onSelect(category.value)}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-              isSelected
-                ? 'border-ink-900 bg-ink-900 text-white'
-                : 'border-clay-200 bg-white text-ink-800 hover:bg-sand-100'
-            }`}
-          >
+    <label className="block w-full sm:max-w-[220px]">
+      <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/60">Category</span>
+      <select
+        value={selectedCategory}
+        onChange={(e) => onSelect(e.target.value as RecommendationCategory)}
+        className="w-full rounded-full border border-clay-200 bg-white px-4 py-3 text-sm font-semibold text-ink-900 shadow-soft outline-none transition duration-200 focus:border-clay-300 focus:ring-2 focus:ring-clay-300"
+      >
+        {categories.map((category) => (
+          <option key={category.value} value={category.value}>
             {category.label}
-          </button>
-        )
-      })}
-    </div>
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 
-interface RecommendationItemCardProps {
-  item: RecommendationItem
+interface RecommendationFocusCardProps {
+  item: RecommendationItem | null
+  currentIndex: number
+  totalCount: number
   isBusy: boolean
   isTimerRunning: boolean
   timerRemaining: number | null
-  isExpanded: boolean
-  onToggleExpanded: () => void
-  onSelect: (item: RecommendationItem) => Promise<void>
-  onComplete: (item: RecommendationItem) => Promise<void>
-  onAdoptHabit: (item: RecommendationItem) => Promise<void>
-  onStartTimer: (item: RecommendationItem) => Promise<void>
+  primaryLabel: string
+  contextLine: string
+  onPrimary: () => void
+  onNext: () => void
+  onSkip: () => void
 }
 
-function RecommendationItemCard({
+function RecommendationFocusCard({
   item,
+  currentIndex,
+  totalCount,
   isBusy,
   isTimerRunning,
   timerRemaining,
-  isExpanded,
-  onToggleExpanded,
-  onSelect,
-  onComplete,
-  onAdoptHabit,
-  onStartTimer,
-}: RecommendationItemCardProps) {
-  const [isMoreOpen, setIsMoreOpen] = useState(false)
-
-  const isCompleted = item.status === 'completed'
-  const primaryDisabled = isBusy || isCompleted
-
-  let primaryLabel = 'Select'
-  let primaryAction = () => onSelect(item)
-  if (item.kind === 'reflection') {
-    primaryLabel = 'Open in chat'
-    primaryAction = () => onSelect(item)
-  } else if (item.kind === 'timed_action') {
-    primaryLabel = isTimerRunning && timerRemaining !== null ? `Timer ${timerRemaining}s` : 'Start timer'
-    primaryAction = () => onStartTimer(item)
-  } else if (item.kind === 'habit') {
-    primaryLabel = 'Add to habits'
-    primaryAction = () => onAdoptHabit(item)
-  } else {
-    primaryLabel = 'Mark complete'
-    primaryAction = () => onComplete(item)
+  primaryLabel,
+  contextLine,
+  onPrimary,
+  onNext,
+  onSkip,
+}: RecommendationFocusCardProps) {
+  if (!item) {
+    return (
+      <article className="rounded-[1.5rem] border border-clay-200 bg-white p-5 shadow-[0_24px_60px_-28px_rgba(109,82,45,0.28)] sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/60">Recommendation</p>
+        <h2 className="mt-2 text-2xl font-semibold text-ink-900">You&apos;re done for now</h2>
+        <p className="mt-3 text-sm leading-6 text-ink-700/75">Refresh the batch to load a new recommendation set.</p>
+      </article>
+    )
   }
 
-  return (
-    <article className="rounded-[1.35rem] border border-clay-200/80 bg-sand-50/75 p-4 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-700">
-              {formatKind(item.kind)}
-            </span>
-            <span className="rounded-full bg-clay-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-700">
-              {formatDuration(item.estimated_duration_minutes)}
-            </span>
-            <span className="rounded-full bg-clay-200 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-900">
-              {item.status}
-            </span>
-          </div>
-          <h3 className="mt-3 text-lg font-semibold text-ink-900 sm:text-xl">{item.title}</h3>
+  const isCompleted = item.status === 'completed'
+  const isPrimaryDisabled = isBusy || isCompleted || (item.kind === 'timed_action' && isTimerRunning)
+  const progressIndex = Math.min(currentIndex, Math.max(totalCount - 1, 0))
+  const progressDots = Math.min(totalCount, 5)
 
-          {isExpanded ? (
-            <div className="mt-3 space-y-3">
-              <p className="text-sm leading-6 text-ink-700">{item.rationale}</p>
-              {item.follow_up_text ? <p className="text-sm text-ink-700/78">{item.follow_up_text}</p> : null}
-              {item.action_payload.prompt ? (
-                <div className="rounded-[1rem] border border-clay-200/70 bg-white/85 px-3 py-3 text-sm text-ink-800">
-                  {String(item.action_payload.prompt)}
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-ink-700">{item.rationale}</p>
-          )}
+  return (
+    <article className="rounded-[1.5rem] border border-clay-200 bg-white p-5 shadow-[0_24px_60px_-28px_rgba(109,82,45,0.28)] sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/60">
+            <span>
+              Item {currentIndex + 1} of {totalCount}
+            </span>
+            <span aria-hidden="true">•</span>
+            <span>{formatKind(item.kind)}</span>
+          </div>
+          <div className="flex gap-1.5" aria-label="Recommendation progress">
+            {Array.from({ length: progressDots }).map((_, index) => (
+              <span
+                key={`${item.id}-dot-${index}`}
+                className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
+                  index <= progressIndex ? 'bg-ink-900 scale-110 animate-dot-pop' : 'bg-clay-200'
+                }`}
+              />
+            ))}
+          </div>
         </div>
 
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[200px] sm:items-end">
+        <span className="rounded-full bg-sand-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-700">
+          {item.status}
+        </span>
+      </div>
+
+      <div className="mt-5 pt-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-700/55">Context</p>
+        <p className="mt-1 text-sm leading-6 text-ink-700/78">{contextLine}</p>
+      </div>
+
+      <h2 className="mt-5 font-heading text-[2rem] text-ink-900 sm:text-[2.35rem]">{item.title}</h2>
+      <p className="mt-2 text-sm leading-6 text-ink-700">{item.rationale}</p>
+
+      {item.follow_up_text ? <p className="mt-3 text-sm leading-6 text-ink-700/80">{item.follow_up_text}</p> : null}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border border-clay-200 bg-sand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-700/70">
+          {formatDuration(item.estimated_duration_minutes)}
+        </span>
+        {item.kind === 'timed_action' && timerRemaining !== null ? (
+          <span className="rounded-full border border-clay-200 bg-sand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-700/70">
+            {timerRemaining}s remaining
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-5 space-y-3">
+        <button
+          type="button"
+          onClick={() => void onPrimary()}
+          disabled={isPrimaryDisabled}
+          className="flex w-full items-center justify-center rounded-full bg-ink-900 px-4 py-4 text-sm font-semibold text-white transition duration-200 hover:-translate-y-px hover:bg-ink-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {primaryLabel}
+        </button>
+
+        <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => void primaryAction()}
-            disabled={item.kind === 'timed_action' ? isBusy || isTimerRunning || isCompleted : primaryDisabled}
-            className="rounded-full bg-ink-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={onSkip}
+            className="flex-1 rounded-full border border-clay-200 bg-white px-4 py-3 text-sm font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98]"
           >
-            {primaryLabel}
+            Skip
           </button>
-
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <button
-              type="button"
-              onClick={onToggleExpanded}
-              className="rounded-full border border-clay-300 px-3 py-1.5 text-xs font-semibold text-ink-800 transition hover:bg-white"
-            >
-              {isExpanded ? 'Hide details' : 'Show details'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsMoreOpen((current) => !current)}
-              className="rounded-full border border-clay-300 px-3 py-1.5 text-xs font-semibold text-ink-800 transition hover:bg-white"
-            >
-              {isMoreOpen ? 'Less' : 'More'}
-            </button>
-          </div>
-
-          {isMoreOpen ? (
-            <div className="w-full space-y-2 rounded-[1rem] border border-clay-200/80 bg-white/85 p-2 sm:w-[220px]">
-              {item.kind !== 'reflection' && !(item.kind === 'instant_action') ? (
-                <button
-                  type="button"
-                  onClick={() => void onComplete(item)}
-                  disabled={isBusy || isCompleted}
-                  className="w-full rounded-lg border border-clay-300 px-3 py-2 text-left text-xs font-semibold text-ink-800 transition hover:bg-sand-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Mark complete
-                </button>
-              ) : null}
-
-              {item.kind !== 'reflection' && !(item.kind === 'timed_action') && !(item.kind === 'habit') ? (
-                <button
-                  type="button"
-                  onClick={() => void onSelect(item)}
-                  disabled={isBusy || isCompleted}
-                  className="w-full rounded-lg border border-clay-300 px-3 py-2 text-left text-xs font-semibold text-ink-800 transition hover:bg-sand-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Select
-                </button>
-              ) : null}
-
-              {item.kind === 'timed_action' ? (
-                <button
-                  type="button"
-                  onClick={() => void onSelect(item)}
-                  disabled={isBusy || isCompleted}
-                  className="w-full rounded-lg border border-clay-300 px-3 py-2 text-left text-xs font-semibold text-ink-800 transition hover:bg-sand-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Select without timer
-                </button>
-              ) : null}
-
-              {item.kind === 'habit' ? (
-                <button
-                  type="button"
-                  onClick={() => void onComplete(item)}
-                  disabled={isBusy || isCompleted}
-                  className="w-full rounded-lg border border-clay-300 px-3 py-2 text-left text-xs font-semibold text-ink-800 transition hover:bg-sand-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Mark complete
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex-1 rounded-full border border-clay-200 bg-white px-4 py-3 text-sm font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98]"
+          >
+            Next
+          </button>
         </div>
       </div>
     </article>
   )
 }
 
-interface HabitChecklistCardProps {
+interface HabitSummaryProps {
   checklist: DailyHabitChecklistResponse | null
   activeItemIds: number[]
   onToggleHabit: (item: DailyHabitChecklistItem) => Promise<void>
@@ -245,159 +209,105 @@ interface HabitChecklistCardProps {
   isAddingHabit: boolean
 }
 
-function HabitChecklistCard({
-  checklist,
-  activeItemIds,
-  onToggleHabit,
-  onRemoveHabit,
-  onAddHabit,
-  isAddingHabit,
-}: HabitChecklistCardProps) {
-  const [isFormOpen, setIsFormOpen] = useState(false)
+function HabitSummary({ checklist, activeItemIds, onToggleHabit, onRemoveHabit, onAddHabit, isAddingHabit }: HabitSummaryProps) {
+  const [isOpen, setIsOpen] = useState(true)
   const [newHabitName, setNewHabitName] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  const completedCount = checklist?.habits.filter((item) => item.is_completed).length ?? 0
+  const totalCount = checklist?.habits.length ?? 0
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const trimmed = newHabitName.trim()
     if (!trimmed) return
     await onAddHabit(trimmed)
     setNewHabitName('')
-    setIsFormOpen(false)
+    setIsOpen(true)
   }
 
   return (
-    <article className="rounded-[1.6rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft">
-      <div className="flex items-center justify-between gap-3">
+    <section className="rounded-[1.5rem] border border-clay-200 bg-white/96 p-5 shadow-soft sm:p-6">
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-4 text-left transition duration-200 hover:opacity-90 active:scale-[0.99]"
+      >
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/65">Checklist</p>
-          <h2 className="mt-1 text-xl font-semibold text-ink-900">Today's habits</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/60">Today&apos;s habits</p>
+          <h3 className="mt-1 text-sm font-semibold text-ink-900">
+            {completedCount} of {totalCount} completed
+          </h3>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-700/65">{checklist?.habits.length ?? 0} active</p>
-      </div>
+        <span className="rounded-full border border-clay-200 bg-sand-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-700/70">
+          {isOpen ? 'Hide' : 'Show'}
+        </span>
+      </button>
 
-      {checklist?.habits.length ? (
+      {isOpen ? (
         <div className="mt-4 space-y-3">
-          {checklist.habits.map((item) => {
-            const isBusy = activeItemIds.includes(item.habit.id)
-            return (
-              <div key={item.habit.id} className="flex items-start gap-3 rounded-[1rem] border border-clay-200/70 bg-sand-50/70 px-3 py-3">
-                <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={item.is_completed}
-                    onChange={() => void onToggleHabit(item)}
-                    disabled={isBusy}
-                    className="mt-1 h-4 w-4 rounded border-clay-300 text-ink-900 focus:ring-clay-300"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-ink-900">{item.habit.name}</span>
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => void onRemoveHabit(item)}
-                  disabled={isBusy}
-                  aria-label={`Remove ${item.habit.name}`}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-clay-200 bg-white text-ink-700 transition hover:border-clay-300 hover:text-ink-900 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-                    <path d="M6 7h12" strokeLinecap="round" />
-                    <path d="M9.5 7V5.75c0-.414.336-.75.75-.75h3.5c.414 0 .75.336.75.75V7" strokeLinecap="round" />
-                    <path d="M8.5 10v6" strokeLinecap="round" />
-                    <path d="M12 10v6" strokeLinecap="round" />
-                    <path d="M15.5 10v6" strokeLinecap="round" />
-                    <path d="M7.5 7l.6 10.109a1 1 0 0 0 .998.941h5.804a1 1 0 0 0 .998-.941L16.5 7" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <p className="mt-4 text-sm text-ink-700/72">Add a habit below or adopt one from your recommendations.</p>
-      )}
+          {checklist?.habits.length ? (
+            <div className="space-y-2">
+              {checklist.habits.map((item) => {
+                const isBusy = activeItemIds.includes(item.habit.id)
+                return (
+                  <div key={item.habit.id} className="flex items-center gap-3 rounded-[1rem] border border-clay-200 bg-sand-50/70 px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={item.is_completed}
+                      onChange={() => void onToggleHabit(item)}
+                      disabled={isBusy}
+                      className="h-4 w-4 rounded border-clay-300 text-ink-900 focus:ring-clay-300"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-ink-900">{item.habit.name}</p>
+                      {item.habit.reason_text ? <p className="text-xs leading-5 text-ink-700/70">{item.habit.reason_text}</p> : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void onRemoveHabit(item)}
+                      disabled={isBusy}
+                      className="rounded-full border border-clay-200 bg-white px-3 py-2 text-xs font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="rounded-[1rem] border border-dashed border-clay-200 bg-sand-50/60 px-4 py-4 text-sm leading-6 text-ink-700/72">
+              No habits yet. Add one below or adopt one from a recommendation.
+            </p>
+          )}
 
-      {isFormOpen ? (
-        <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 flex gap-2">
-          <input
-            type="text"
-            value={newHabitName}
-            onChange={(e) => setNewHabitName(e.target.value)}
-            placeholder="e.g. Morning Walk"
-            autoFocus
-            maxLength={255}
-            className="min-w-0 flex-1 rounded-full border border-clay-300 bg-white px-4 py-2 text-sm text-ink-900 placeholder:text-ink-700/45 focus:outline-none focus:ring-2 focus:ring-clay-300"
-          />
-          <button
-            type="submit"
-            disabled={isAddingHabit || !newHabitName.trim()}
-            className="rounded-full bg-ink-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isAddingHabit ? 'Adding...' : 'Add'}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsFormOpen(false); setNewHabitName('') }}
-            className="rounded-full border border-clay-200 px-3 py-2 text-sm font-semibold text-ink-700 transition hover:bg-sand-50"
-          >
-            Cancel
-          </button>
-        </form>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setIsFormOpen(true)}
-          className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-ink-700 transition hover:text-ink-900"
-        >
-          <span className="text-base leading-none">+</span> Add habit
-        </button>
-      )}
-    </article>
+          <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={newHabitName}
+              onChange={(e) => setNewHabitName(e.target.value)}
+              placeholder="Add a habit"
+              maxLength={255}
+              className="min-w-0 flex-1 rounded-full border border-clay-200 bg-white px-4 py-3 text-sm text-ink-900 placeholder:text-ink-700/45 focus:outline-none focus:ring-2 focus:ring-clay-300"
+            />
+            <button
+              type="submit"
+              disabled={isAddingHabit || !newHabitName.trim()}
+              className="rounded-full bg-ink-900 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:-translate-y-px hover:bg-ink-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isAddingHabit ? 'Adding...' : 'Add'}
+            </button>
+          </form>
+        </div>
+      ) : null}
+    </section>
   )
 }
 
-interface RecentBatchesCardProps {
-  history: RecommendationBatch[]
-}
-
-function RecentBatchesCard({ history }: RecentBatchesCardProps) {
-  const preview = history.slice(0, 3)
-
-  return (
-    <article className="rounded-[1.6rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/65">History</p>
-          <h2 className="mt-1 text-xl font-semibold text-ink-900">Recent batches</h2>
-        </div>
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-700/65">{history.length} saved</p>
-      </div>
-
-      {preview.length ? (
-        <div className="mt-4 space-y-3">
-          {preview.map((entry) => (
-            <article key={entry.id} className="rounded-[1rem] border border-clay-200/70 bg-sand-50/70 px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold capitalize text-ink-900">{entry.category}</p>
-                <span className="text-xs text-ink-700/70">{formatDate(entry.created_at)}</span>
-              </div>
-              <p className="mt-2 text-xs leading-5 text-ink-700/75">{entry.items.slice(0, 1).map((item) => item.title).join('')}</p>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-4 text-sm text-ink-700/72">No recommendation batches have been generated yet.</p>
-      )}
-    </article>
-  )
-}
-
-export default function RecommendationsPage({ onOpenNavigation }: RecommendationsPageProps) {
+export default function RecommendationsPage() {
   const navigate = useNavigate()
   const { userId } = useAppState()
   const [selectedCategory, setSelectedCategory] = useState<RecommendationCategory>('balance')
   const [batch, setBatch] = useState<RecommendationBatch | null>(null)
-  const [history, setHistory] = useState<RecommendationBatch[]>([])
   const [checklist, setChecklist] = useState<DailyHabitChecklistResponse | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -406,12 +316,36 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
   const [isAddingHabit, setIsAddingHabit] = useState(false)
   const [timerItemId, setTimerItemId] = useState<number | null>(null)
   const [timerRemaining, setTimerRemaining] = useState<number | null>(null)
-  const [expandedItemIds, setExpandedItemIds] = useState<number[]>([])
+  const [currentItemIndex, setCurrentItemIndex] = useState(0)
+  const [selectedMood, setSelectedMood] = useState<string | null>(null)
 
-  const selectedTimerItem = useMemo(
-    () => batch?.items.find((item) => item.id === timerItemId) ?? null,
-    [batch, timerItemId],
-  )
+  const currentItem = batch?.items[currentItemIndex] ?? null
+  const currentCategoryLabel = categories.find((category) => category.value === selectedCategory)?.label ?? selectedCategory
+  const contextLine = categoryContextLines[selectedCategory]
+  const moodStorageKey = `mindpal:recommendation-mood:${userId}`
+
+  useEffect(() => {
+    try {
+      const storedMood = window.localStorage.getItem(moodStorageKey)
+      if (storedMood && moodOptions.some((option) => option.value === storedMood)) {
+        setSelectedMood(storedMood)
+      }
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [moodStorageKey])
+
+  useEffect(() => {
+    try {
+      if (selectedMood) {
+        window.localStorage.setItem(moodStorageKey, selectedMood)
+      } else {
+        window.localStorage.removeItem(moodStorageKey)
+      }
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [moodStorageKey, selectedMood])
 
   useEffect(() => {
     if (timerItemId === null || timerRemaining === null || timerRemaining <= 0) {
@@ -425,54 +359,26 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
     return () => window.clearTimeout(timeout)
   }, [timerItemId, timerRemaining])
 
-  useEffect(() => {
-    if (timerItemId === null || timerRemaining !== 0) {
-      return
-    }
-
-    const currentItemId = timerItemId
-    setTimerItemId(null)
-    setTimerRemaining(null)
-
-    void (async () => {
+  const loadPage = useCallback(
+    async (category: RecommendationCategory) => {
+      setIsLoading(true)
+      setPageError(null)
       try {
-        await logRecommendationItemInteraction(currentItemId, {
-          user_id: userId,
-          event_type: 'timer_completed',
-          payload: {},
-        })
-        const updated = await completeRecommendationItem(currentItemId, userId)
-        setBatch((current) => {
-          if (!current) return current
-          return {
-            ...current,
-            items: current.items.map((item) => (item.id === updated.id ? updated : item)),
-          }
-        })
+        const [todayBatch, checklistResponse] = await Promise.all([
+          getTodayRecommendations(userId, category),
+          getHabitChecklist(userId),
+        ])
+        setBatch(todayBatch)
+        setChecklist(checklistResponse)
+        setCurrentItemIndex(0)
       } catch {
-        setPageError('The timer finished, but completion could not be recorded.')
+        setPageError('Recommendations are unavailable right now.')
+      } finally {
+        setIsLoading(false)
       }
-    })()
-  }, [timerItemId, timerRemaining, userId])
-
-  const loadPage = useCallback(async (category: RecommendationCategory) => {
-    setIsLoading(true)
-    setPageError(null)
-    try {
-      const [todayBatch, historyResponse, checklistResponse] = await Promise.all([
-        getTodayRecommendations(userId, category),
-        getRecommendationHistory(userId, 8),
-        getHabitChecklist(userId),
-      ])
-      setBatch(todayBatch)
-      setHistory(historyResponse.batches)
-      setChecklist(checklistResponse)
-    } catch {
-      setPageError('Recommendations are unavailable right now.')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [userId])
+    },
+    [userId],
+  )
 
   useEffect(() => {
     void loadPage(selectedCategory)
@@ -483,13 +389,10 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
     setPageError(null)
     try {
       const nextBatch = await generateRecommendations({ user_id: userId, category: selectedCategory })
-      const [historyResponse, checklistResponse] = await Promise.all([
-        getRecommendationHistory(userId, 8),
-        getHabitChecklist(userId),
-      ])
+      const checklistResponse = await getHabitChecklist(userId)
       setBatch(nextBatch)
-      setHistory(historyResponse.batches)
       setChecklist(checklistResponse)
+      setCurrentItemIndex(0)
     } catch {
       setPageError('A fresh batch could not be generated.')
     } finally {
@@ -497,11 +400,7 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
     }
   }
 
-  async function runItemAction(
-    itemId: number,
-    action: () => Promise<void>,
-    failureMessage = 'That recommendation action could not be completed.',
-  ) {
+  async function runItemAction(itemId: number, action: () => Promise<void>, failureMessage = 'That recommendation action could not be completed.') {
     setActiveItemIds((current) => [...current, itemId])
     setPageError(null)
     try {
@@ -512,6 +411,13 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
       setActiveItemIds((current) => current.filter((value) => value !== itemId))
     }
   }
+
+  const advanceToNextItem = useCallback(() => {
+    setCurrentItemIndex((current) => {
+      if (!batch?.items.length) return 0
+      return Math.min(current + 1, batch.items.length)
+    })
+  }, [batch?.items.length])
 
   async function handleSelect(item: RecommendationItem) {
     await runItemAction(item.id, async () => {
@@ -545,6 +451,7 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
           items: current.items.map((entry) => (entry.id === updated.id ? updated : entry)),
         }
       })
+      advanceToNextItem()
     })
   }
 
@@ -553,6 +460,7 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
       await adoptRecommendationItem(item.id, { user_id: userId })
       const checklistResponse = await getHabitChecklist(userId)
       setChecklist(checklistResponse)
+      advanceToNextItem()
     })
   }
 
@@ -589,9 +497,7 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
 
   async function handleRemoveHabit(item: DailyHabitChecklistItem) {
     const confirmed = window.confirm(`Remove "${item.habit.name}" from today's habit checklist?`)
-    if (!confirmed) {
-      return
-    }
+    if (!confirmed) return
 
     await runItemAction(
       item.habit.id,
@@ -617,132 +523,152 @@ export default function RecommendationsPage({ onOpenNavigation }: Recommendation
     })
   }
 
-  const completionRatio = useMemo(() => {
-    if (!checklist?.habits.length) return 0
-    const doneCount = checklist.habits.filter((item) => item.is_completed).length
-    return Math.round((doneCount / checklist.habits.length) * 100)
-  }, [checklist])
+  const currentItemBusy = currentItem ? activeItemIds.includes(currentItem.id) : false
+  const currentItemPrimaryLabel = currentItem
+    ? currentItem.kind === 'timed_action' && timerItemId === currentItem.id && timerRemaining !== null
+      ? `Timer ${timerRemaining}s`
+      : currentItem.kind === 'timed_action'
+        ? 'Start timer'
+        : currentItem.kind === 'habit'
+          ? 'Add to habits'
+          : currentItem.kind === 'reflection'
+            ? 'Open in chat'
+            : 'Mark complete'
+    : 'Continue'
 
-  function toggleItemExpansion(itemId: number) {
-    setExpandedItemIds((current) =>
-      current.includes(itemId) ? current.filter((value) => value !== itemId) : [...current, itemId],
-    )
-  }
+  useEffect(() => {
+    if (batch && currentItemIndex > batch.items.length) {
+      setCurrentItemIndex(batch.items.length)
+    }
+  }, [batch, currentItemIndex])
+
+  useEffect(() => {
+    if (timerItemId === null || timerRemaining !== 0) {
+      return
+    }
+
+    const currentCompletedItemId = timerItemId
+    setTimerItemId(null)
+    setTimerRemaining(null)
+
+    void (async () => {
+      try {
+        await logRecommendationItemInteraction(currentCompletedItemId, {
+          user_id: userId,
+          event_type: 'timer_completed',
+          payload: {},
+        })
+        const updated = await completeRecommendationItem(currentCompletedItemId, userId)
+        setBatch((current) => {
+          if (!current) return current
+          return {
+            ...current,
+            items: current.items.map((entry) => (entry.id === updated.id ? updated : entry)),
+          }
+        })
+        advanceToNextItem()
+      } catch {
+        setPageError('The timer finished, but completion could not be recorded.')
+      }
+    })()
+  }, [advanceToNextItem, timerItemId, timerRemaining, userId])
 
   return (
-    <section className="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="rounded-[2rem] border border-clay-200/80 bg-[linear-gradient(135deg,rgba(255,252,246,0.98),rgba(240,232,221,0.95))] p-6 shadow-soft sm:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-2xl">
-              {onOpenNavigation ? (
-                <button
-                  type="button"
-                  onClick={onOpenNavigation}
-                  className="subtle-icon-button mb-4"
-                  aria-label="Open sidebar"
-                >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-                    <path d="M4 7h16" strokeLinecap="round" />
-                    <path d="M4 12h16" strokeLinecap="round" />
-                    <path d="M4 17h16" strokeLinecap="round" />
-                  </svg>
-                </button>
-              ) : null}
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-ink-700/65">Recommendations</p>
-              <h1 className="mt-2 font-heading text-3xl text-ink-900 sm:text-4xl">Today's Recommendations</h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-ink-700">Choose one direction, then act on one item at a time.</p>
-            </div>
+    <>
+      <LoadingScreen isVisible={isLoading} variant="recommendations" />
+      <section className="h-full overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 sm:gap-6">
+          <header className="space-y-2">
+            <h1 className="font-heading text-3xl text-ink-900 sm:text-[2.35rem]">Today — {currentCategoryLabel}</h1>
+            <p className="max-w-lg text-sm leading-6 text-ink-700/78">One clear recommendation. Finish it, skip it, or move on.</p>
+          </header>
 
-            <div className="min-w-[250px] rounded-[1.6rem] border border-clay-200/80 bg-white/85 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/65">Daily Progress</p>
-              <p className="mt-2 text-3xl font-semibold text-ink-900">{completionRatio}%</p>
-              <p className="mt-1 text-sm text-ink-700">Habits completed today</p>
-              <div className="mt-4 h-2 rounded-full bg-clay-100">
-                <div className="h-2 rounded-full bg-clay-300 transition-all" style={{ width: `${completionRatio}%` }} />
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <HabitChecklistCard
-          checklist={checklist}
-          activeItemIds={activeItemIds}
-          onToggleHabit={handleToggleHabit}
-          onRemoveHabit={handleRemoveHabit}
-          onAddHabit={handleAddHabit}
-          isAddingHabit={isAddingHabit}
-        />
-
-        <article className="rounded-[1.7rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-ink-900">Pick your direction</h2>
-              <p className="mt-1 text-sm text-ink-700">Keep one category active and focus on one recommendation at a time.</p>
-            </div>
+          <div className="flex items-end justify-between gap-3 pb-1">
+            <CategorySelector selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
             <button
               type="button"
               onClick={() => void handleRegenerate()}
               disabled={isRegenerating}
-              className="rounded-full bg-ink-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full border border-clay-200 bg-white px-4 py-3 text-sm font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isRegenerating ? 'Refreshing...' : 'Refresh batch'}
+              {isRegenerating ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
 
-          <div className="mt-5">
-            <CategorySelector selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
-          </div>
-        </article>
+          {pageError ? <p className="rounded-[1rem] border border-clay-200 bg-clay-100 px-4 py-3 text-sm text-ink-800">{pageError}</p> : null}
 
-        {pageError ? <p className="rounded-soft border border-clay-200 bg-clay-100 px-4 py-3 text-sm text-ink-800">{pageError}</p> : null}
-        {isLoading ? <p className="text-sm text-ink-700/75">Loading recommendations...</p> : null}
+          <HabitSummary
+            checklist={checklist}
+            activeItemIds={activeItemIds}
+            onToggleHabit={handleToggleHabit}
+            onRemoveHabit={handleRemoveHabit}
+            onAddHabit={handleAddHabit}
+            isAddingHabit={isAddingHabit}
+          />
 
-        {batch ? (
-          <article className="rounded-[1.7rem] border border-clay-200/80 bg-white/95 p-5 shadow-soft sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/65">Active Batch</p>
-                <h2 className="mt-1 text-2xl font-semibold capitalize text-ink-900">{batch.category} recommendations</h2>
-              </div>
-              <p className="rounded-full bg-clay-100 px-3 py-1 text-xs font-semibold text-ink-700">{formatDate(batch.created_at)}</p>
-            </div>
+          <RecommendationFocusCard
+            item={currentItem}
+            currentIndex={currentItemIndex}
+            totalCount={batch?.items.length ?? 0}
+            isBusy={currentItemBusy}
+            isTimerRunning={timerItemId === currentItem?.id}
+            timerRemaining={timerRemaining}
+            primaryLabel={currentItemPrimaryLabel}
+            contextLine={contextLine}
+            onPrimary={() => {
+              if (!currentItem) return
+              if (currentItem.kind === 'reflection') {
+                void handleSelect(currentItem)
+                return
+              }
+              if (currentItem.kind === 'timed_action') {
+                void handleStartTimer(currentItem)
+                return
+              }
+              if (currentItem.kind === 'habit') {
+                void handleAdoptHabit(currentItem)
+                return
+              }
+              void handleComplete(currentItem)
+            }}
+            onNext={advanceToNextItem}
+            onSkip={advanceToNextItem}
+          />
 
-            <div className="mt-5 space-y-4">
-              {batch.items.map((item) => {
-                const isBusy = activeItemIds.includes(item.id)
-                const isTimerRunning = timerItemId === item.id
+          <div className="flex items-center gap-2 pb-1">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/60">Mood</span>
+            <div className="flex flex-wrap gap-2">
+              {moodOptions.map((option) => {
+                const isSelected = selectedMood === option.value
                 return (
-                  <RecommendationItemCard
-                    key={item.id}
-                    item={item}
-                    isBusy={isBusy}
-                    isTimerRunning={isTimerRunning}
-                    timerRemaining={timerRemaining}
-                    isExpanded={expandedItemIds.includes(item.id)}
-                    onToggleExpanded={() => toggleItemExpansion(item.id)}
-                    onSelect={handleSelect}
-                    onComplete={handleComplete}
-                    onAdoptHabit={handleAdoptHabit}
-                    onStartTimer={handleStartTimer}
-                  />
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSelectedMood(option.value)}
+                    aria-pressed={isSelected}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition duration-200 hover:-translate-y-px active:scale-[0.98] ${
+                      isSelected
+                        ? 'border-ink-900 bg-ink-900 text-white'
+                        : 'border-clay-200 bg-white text-ink-700 hover:bg-sand-100'
+                    }`}
+                  >
+                    <span aria-hidden="true">{option.emoji}</span>
+                    {option.label}
+                  </button>
                 )
               })}
             </div>
-          </article>
-        ) : null}
+          </div>
 
-        {selectedTimerItem && timerRemaining !== null ? (
-          <article className="rounded-[1.6rem] border border-clay-200/80 bg-[#f5efe4] p-5 shadow-soft">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/65">Timer</p>
-            <h2 className="mt-1 text-xl font-semibold text-ink-900">{selectedTimerItem.title}</h2>
-            <p className="mt-4 text-4xl font-semibold tracking-tight text-ink-900">{timerRemaining}s</p>
-            <p className="mt-2 text-sm text-ink-700">Stay with this action until the timer ends. Completion is logged automatically.</p>
-          </article>
-        ) : null}
+          {selectedMood ? (
+            <p className="text-sm leading-6 text-ink-700/72">
+              Mood saved locally: {moodOptions.find((option) => option.value === selectedMood)?.label}
+            </p>
+          ) : null}
 
-        <RecentBatchesCard history={history} />
-      </div>
-    </section>
+          {isLoading ? <p className="text-sm text-ink-700/75">Loading recommendations...</p> : null}
+        </div>
+      </section>
+    </>
   )
 }

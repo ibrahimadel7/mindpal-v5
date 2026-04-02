@@ -10,6 +10,7 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
 from app.services.chat_memory_service import ChatMemoryService
+from app.services.memory_service import MemoryService
 from app.schemas.conversation import (
     ConversationListResponse,
     ConversationMessagesResponse,
@@ -21,6 +22,7 @@ from app.schemas.conversation import (
 router = APIRouter(tags=["conversations"])
 logger = logging.getLogger(__name__)
 memory_service = ChatMemoryService()
+persistent_memory_service = MemoryService()
 
 
 @router.get("/conversations", response_model=ConversationListResponse)
@@ -66,12 +68,31 @@ async def close_conversation(
         conversation.is_closed = True
         conversation.closed_at = datetime.now(UTC)
         try:
-            await memory_service.summarize_and_store_conversation(
+            memory = await memory_service.summarize_and_store_conversation(
                 db,
                 user_id=user_id,
                 conversation_id=id,
                 refresh_existing=True,
             )
+
+            if memory is not None:
+                rows = (
+                    await db.execute(
+                        select(Message.role, Message.content)
+                        .where(Message.conversation_id == id)
+                        .order_by(Message.timestamp.asc(), Message.id.asc())
+                    )
+                ).all()
+                transcript = "\n".join(
+                    f"{row.role.value}: {row.content.strip()}" for row in rows if row.content and row.content.strip()
+                )
+                await persistent_memory_service.upsert_from_conversation_summary(
+                    db,
+                    user_id=user_id,
+                    conversation_id=id,
+                    summary=memory.summary,
+                    transcript=transcript,
+                )
         except Exception:  # noqa: BLE001
             logger.exception("Failed to generate chat memory for conversation_id=%s user_id=%s", id, user_id)
 

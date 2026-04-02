@@ -13,10 +13,36 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database.base import Base
 from app.models.recommendation_batch import RecommendationBatch
+from app.models.recommendation_interaction import RecommendationInteraction
 from app.models.recommendation_item import RecommendationItem
 from app.models.user_habit import UserHabit
 from app.models.user_habit_check import UserHabitCheck
 from app.services.recommendation_service import RecommendationService
+
+
+class _FakeVectorService:
+    async def search_knowledge_entries(
+        self,
+        query: str,
+        top_k: int,
+        *,
+        tags: list[str] | None = None,
+        include_crisis: bool = False,
+    ) -> list[dict]:
+        return [
+            {
+                "id": "kb_who_0001",
+                "content": "Take a short breathing pause to reduce stress.",
+                "metadata": {
+                    "title": "WHO Breathing Reset",
+                    "category": "coping",
+                    "tags": "stress,breathing",
+                    "is_crisis": False,
+                },
+                "distance": 0.1,
+                "tag_overlap": 1,
+            }
+        ]
 
 
 class RecommendationServiceTests(unittest.IsolatedAsyncioTestCase):
@@ -28,6 +54,7 @@ class RecommendationServiceTests(unittest.IsolatedAsyncioTestCase):
         self.session_factory = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
         self.fixed_now = datetime(2026, 3, 13, 9, 30, 0)
         self.service = RecommendationService(now_provider=lambda: self.fixed_now)
+        self.service.vector = _FakeVectorService()
         self.original_groq_key = self.service.settings.groq_api_key
         self.service.settings.groq_api_key = ""
 
@@ -55,6 +82,8 @@ class RecommendationServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(second.id, batches[1].id)
             self.assertEqual(len(first.items), 4)
             self.assertEqual(len(second.items), 4)
+            self.assertIn("who_entries", second.context_summary_json)
+            self.assertEqual(len(second.context_summary_json["who_entries"]), 1)
 
     async def test_adopt_habit_and_complete_daily_checklist(self) -> None:
         async with self.session_factory() as session:
@@ -82,6 +111,24 @@ class RecommendationServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(checklist_after), 1)
             self.assertIsNotNone(checklist_after[0][1])
             self.assertTrue(checklist_after[0][1].is_completed)
+
+            interaction = (
+                await session.execute(
+                    select(RecommendationInteraction)
+                    .where(
+                        RecommendationInteraction.user_id == 8,
+                        RecommendationInteraction.event_type == "habit_checked",
+                    )
+                    .order_by(RecommendationInteraction.id.desc())
+                )
+            ).scalars().first()
+            self.assertIsNotNone(interaction)
+            payload = interaction.event_payload_json
+            self.assertEqual(payload["habit_id"], habit.id)
+            self.assertEqual(payload["habit_name"], habit.name)
+            self.assertEqual(payload["habit_category"], habit.category)
+            self.assertEqual(payload["date"], self.fixed_now.date().isoformat())
+            self.assertTrue(payload["completed"])
 
             stored_items = (
                 await session.execute(select(RecommendationItem).where(RecommendationItem.batch_id == batch.id))

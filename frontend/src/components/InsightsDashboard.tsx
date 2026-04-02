@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { useAppState } from '../state/useAppState'
+import LoadingScreen from './LoadingScreen'
 
 interface InsightsDashboardProps {
   onOpenNavigation?: () => void
@@ -241,6 +242,8 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
   }, [fetchInsights])
 
   return (
+      <>
+        <LoadingScreen isVisible={isLoadingInsights} variant="insights" />
     <section className="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex items-start justify-between gap-4">
@@ -273,7 +276,6 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
           </div>
         </header>
 
-        {isLoadingInsights ? <p className="text-sm text-ink-700/75">Loading insights...</p> : null}
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_290px]">
           <div className="space-y-5">
@@ -512,5 +514,6 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
       </div>
 
     </section>
+      </>
   )
 }

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import ReflectionList from './ReflectionList'
 import { useAppState } from '../state/useAppState'
 
@@ -39,6 +39,7 @@ function RecommendationsIcon() {
 }
 
 export default function Sidebar({ className = '', onNavigate, onClose, isCollapsed = false, onToggleCollapse, hideNav = false }: SidebarProps) {
+  const navigate = useNavigate()
   const { conversations, currentConversationId, createConversation, removeConversation, selectConversation, isDeleting } =
     useAppState()
 
@@ -152,7 +153,11 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
           <ReflectionList
             reflections={conversations}
             activeId={currentConversationId}
-            onSelect={(id) => void selectConversation(id)}
+            onSelect={(id) => {
+              void selectConversation(id)
+              navigate('/chat')
+              onNavigate?.()
+            }}
             onDelete={async (id) => {
               await removeConversation(id)
             }}

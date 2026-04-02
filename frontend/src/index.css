@@ -25,7 +25,44 @@ body {
   box-sizing: border-box;
 }
 
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dot-pop {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.72;
+  }
+
+  60% {
+    transform: scale(1.16);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @layer components {
+  .page-enter {
+    animation: page-enter 180ms ease-out both;
+  }
+
+  .animate-dot-pop {
+    animation: dot-pop 240ms ease-out both;
+  }
+
   .subtle-icon-button {
     @apply inline-flex h-10 w-10 items-center justify-center rounded-full border border-clay-200/85 bg-white/90 text-ink-700/85 transition-colors duration-200 hover:border-clay-300 hover:bg-white hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 focus-visible:ring-offset-2;
   }
