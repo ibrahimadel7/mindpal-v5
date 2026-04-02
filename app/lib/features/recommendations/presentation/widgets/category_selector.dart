@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'package:mindpal_app/theme.dart';
 
@@ -22,40 +23,33 @@ class CategorySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: categories
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(item),
-                  selected: selected == item,
-                  onSelected: (_) => onSelect(item),
-                  selectedColor: MindPalColors.clay400,
-                  labelStyle: TextStyle(
-                    color: selected == item
-                        ? Colors.white
-                        : isDark
-                            ? MindPalColors.darkTextPrimary
-                            : MindPalColors.ink800,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  backgroundColor: isDark
-                      ? MindPalColors.darkSurfaceHigh
-                      : MindPalColors.surfaceHigh,
-                  showCheckmark: false,
-                ),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: categories.map((item) {
+        final isSelected = selected == item;
+        return GestureDetector(
+          onTap: () => onSelect(item),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? MindPalColors.ink900 : Colors.white,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: isSelected ? MindPalColors.ink900 : MindPalColors.clay200,
               ),
-            )
-            .toList(growable: false),
-      ),
+            ),
+            child: Text(
+              item,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : MindPalColors.ink800,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

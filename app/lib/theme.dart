@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MindPalColors {
-  // ── Light mode ──────────────────────────────────────────────
+  // ── Colors ──────────────────────────────────────────────────
   static const sand50 = Color(0xFFF8F6F2);
-  static const sand75 = Color(0xFFF5F1EC);
   static const sand100 = Color(0xFFF2EDE6);
   static const sand200 = Color(0xFFE7DDD1);
+  static const sand300 = Color(0xFFD5C6B4);
+  static const sand400 = Color(0xFFC3AE96);
+  static const clay50 = Color(0xFFF2EDE7);
   static const clay100 = Color(0xFFE7DDD1);
   static const clay200 = Color(0xFFD6C4AF);
   static const clay300 = Color(0xFFBEA489);
   static const clay400 = Color(0xFFA98765);
   static const sage100 = Color(0xFFE2E6DF);
+  static const sage200 = Color(0xFFC6D0C1);
+  static const sage300 = Color(0xFF9DAF9F);
   static const ink700 = Color(0xFF5A5148);
   static const ink800 = Color(0xFF3F372F);
   static const ink900 = Color(0xFF261F19);
@@ -26,38 +30,57 @@ class MindPalColors {
   static const recommendationGradientEnd = Color(0xFFF0E8DD);
   static const timerCardBg = Color(0xFFF5EFE4);
 
-  // ── Dark mode — warm espresso palette ───────────────────────
-  // Backgrounds (warm dark browns, never cold gray)
-  static const darkBg = Color(0xFF1C1714); // deepest — scaffold
-  static const darkSurface = Color(0xFF231E1A); // cards, drawer
-  static const darkSurfaceMid = Color(0xFF2C2520); // elevated cards
-  static const darkSurfaceHigh = Color(0xFF362E28); // pressed / hover
-  static const darkNavBg = Color(0xFF1F1B18); // bottom nav
+  // Keep dark mode color aliases for backwards compatibility
+  // (all point to light mode colors to avoid breaking existing code)
+  static const darkBg = surface;
+  static const darkSurface = Colors.white;
+  static const darkSurfaceMid = sand100;
+  static const darkSurfaceHigh = sand200;
+  static const darkNavBg = navBg;
+  static const darkClay = clay200;
+  static const darkClayMuted = clay100;
+  static const darkSand = sand200;
+  static const darkBorder = clay200;
+  static const darkBorderSub = clay100;
+  static const darkBorderAccent = clay300;
+  static const darkTextPrimary = ink900;
+  static const darkTextSecondary = ink700;
+  static const darkTextTertiary = ink700;
+  static const darkTextMuted = ink700;
+  static const darkAccent = clay400;
+  static const darkAccentMuted = clay300;
+  static const darkAccentSubtle = clay200;
+  static const darkSage = sage300;
+  static const darkSageMuted = sage200;
 
-  // Borders in dark mode
-  static const darkBorder = Color(0xFF3D3329); // clay-ish border
-  static const darkBorderSub = Color(0xFF302820); // subtle dividers
-
-  // Text in dark mode (warm whites, never pure white)
-  static const darkTextPrimary = Color(0xFFEDE8E1); // headings
-  static const darkTextSecondary = Color(0xFFB8AFA6); // body
-  static const darkTextTertiary = Color(0xFF7A7068); // timestamps, hints
-
-  // Accent stays warm clay (same as light, slightly brighter)
-  static const darkAccent = Color(0xFFC9A882); // clay300 brightened for dark bg
-
-  // ── Emotion colors (shared) ──────────────────────────────────
+  // ── Emotion colors ───────────────────────────────────────────
   static const emotionJoy = Color(0xFFE2CAB0);
   static const emotionExcitement = Color(0xFFC9958A);
   static const emotionGratitude = Color(0xFFC89A77);
   static const emotionCalm = Color(0xFFB79282);
   static const emotionNeutral = Color(0xFFD8BEA4);
   static const emotionAnxiety = Color(0xFFD6A88C);
+  static const emotionFear = Color(0xFFD4B189);
   static const emotionSadness = Color(0xFFAD8A7A);
   static const emotionFrustration = Color(0xFFBD8777);
   static const emotionAnger = Color(0xFFBF8476);
+  static const emotionStress = Color(0xFFCDA080);
 
-  static Color emotionColor(String label) {
+  // Aliases for dark mode (same as light for backwards compatibility)
+  static const darkEmotionJoy = emotionJoy;
+  static const darkEmotionExcitement = emotionExcitement;
+  static const darkEmotionGratitude = emotionGratitude;
+  static const darkEmotionCalm = emotionCalm;
+  static const darkEmotionNeutral = emotionNeutral;
+  static const darkEmotionAnxiety = emotionAnxiety;
+  static const darkEmotionFear = emotionFear;
+  static const darkEmotionSadness = emotionSadness;
+  static const darkEmotionFrustration = emotionFrustration;
+  static const darkEmotionAnger = emotionAnger;
+  static const darkEmotionStress = emotionStress;
+
+  static Color emotionColor(String label, {bool isDark = false}) {
+    // isDark parameter ignored - always return light mode colors
     switch (label.trim().toLowerCase()) {
       case 'joy':
         return emotionJoy;
@@ -69,12 +92,16 @@ class MindPalColors {
         return emotionCalm;
       case 'anxiety':
         return emotionAnxiety;
+      case 'fear':
+        return emotionFear;
       case 'sadness':
         return emotionSadness;
       case 'frustration':
         return emotionFrustration;
       case 'anger':
         return emotionAnger;
+      case 'stress':
+        return emotionStress;
       default:
         return emotionNeutral;
     }
