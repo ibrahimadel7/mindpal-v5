@@ -136,40 +136,118 @@ class AppDrawer extends ConsumerWidget {
                     itemBuilder: (context, index) {
                       final conv = conversations[index];
                       final isSelected = conv.id == chatState.currentConversationId;
-                      return ListTile(
-                        selected: isSelected,
-                        selectedTileColor: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withValues(alpha: 0.1),
-                        selectedColor: Theme.of(context).colorScheme.primary,
-                        leading: Icon(
-                          Icons.chat_bubble_outline,
-                          size: 20,
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : isDark
-                                  ? MindPalColors.darkTextSecondary
-                                  : MindPalColors.clay400,
+                      return Dismissible(
+                        key: Key(conv.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: MindPalColors.emotionAnger,
+                          child: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
-                        title: Text(
-                          conv.title != null && conv.title!.isNotEmpty
-                              ? conv.title!
-                              : 'Chat ${conv.id.substring(0, min(8, conv.id.length))}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          _formatDate(conv.createdAt),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          ref.read(chatProvider.notifier).switchConversation(conv.id);
-                          if (currentRoute != '/chat') {
-                            context.go('/chat');
-                          }
+                        confirmDismiss: (direction) async {
+                          return await showDialog<bool>(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text('Delete Conversation'),
+                                content: const Text(
+                                  'Are you sure you want to delete this conversation? This action cannot be undone.',
+                                ),
+                                actions: <Widget>[
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: MindPalColors.emotionAnger,
+                                    ),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
                         },
+                        onDismissed: (direction) {
+                          ref.read(chatProvider.notifier).deleteConversation(conv.id);
+                        },
+                        child: ListTile(
+                          selected: isSelected,
+                          selectedTileColor: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.1),
+                          selectedColor: Theme.of(context).colorScheme.primary,
+                          leading: Icon(
+                            Icons.chat_bubble_outline,
+                            size: 20,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : isDark
+                                    ? MindPalColors.darkTextSecondary
+                                    : MindPalColors.clay400,
+                          ),
+                          title: Text(
+                            conv.title != null && conv.title!.isNotEmpty
+                                ? conv.title!
+                                : 'Chat ${conv.id.substring(0, min(8, conv.id.length))}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            _formatDate(conv.createdAt),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            color: isDark
+                                ? MindPalColors.darkTextSecondary
+                                : MindPalColors.clay400,
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title: const Text('Delete Conversation'),
+                                    content: const Text(
+                                      'Are you sure you want to delete this conversation? This action cannot be undone.',
+                                    ),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: MindPalColors.emotionAnger,
+                                        ),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                              if (confirmed == true) {
+                                ref.read(chatProvider.notifier).deleteConversation(conv.id);
+                              }
+                            },
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            ref.read(chatProvider.notifier).switchConversation(conv.id);
+                            if (currentRoute != '/chat') {
+                              context.go('/chat');
+                            }
+                          },
+                        ),
                       );
                     },
                   );

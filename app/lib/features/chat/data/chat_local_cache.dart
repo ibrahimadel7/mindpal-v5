@@ -34,6 +34,10 @@ class ChatLocalCache {
     await _localCacheService.instance();
   }
 
+  Future<void> clearConversation(String conversationId) async {
+    _memoryCache.remove(conversationId);
+  }
+
   Future<void> clear() async {
     _memoryCache.clear();
     await _localCacheService.clearAll();

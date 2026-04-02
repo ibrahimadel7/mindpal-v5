@@ -86,58 +86,10 @@ class ChatNotifier extends _$ChatNotifier {
     state = state.copyWith(isInitializing: true, error: null);
 
     try {
-      final available = await ref.read(conversationsProvider.future);
-      // Check if provider is still mounted after async operation
-      if (!ref.mounted) return;
-
-      if (available.isNotEmpty) {
-        final conversationId = available.first.id;
-        
-        // First check local cache
-        final cached = ref
-            .read(chatLocalCacheProvider)
-            .readMessages(conversationId);
-        
-        if (cached.isNotEmpty) {
-          if (!ref.mounted) return;
-          state = state.copyWith(
-            currentConversationId: conversationId,
-            messages: <String, List<Message>>{
-              ...state.messages,
-              conversationId: cached,
-            },
-            isInitializing: false,
-          );
-          return;
-        }
-
-        // If cache is empty, fetch from backend
-        try {
-          final repo = ref.read(chatRepositoryProvider);
-          final messages = await repo.fetchMessages(conversationId);
-          if (!ref.mounted) return;
-
-          state = state.copyWith(
-            currentConversationId: conversationId,
-            messages: <String, List<Message>>{
-              ...state.messages,
-              conversationId: messages,
-            },
-            isInitializing: false,
-          );
-
-          // Update local cache
-          await ref
-              .read(chatLocalCacheProvider)
-              .writeMessages(conversationId, messages);
-          return;
-        } catch (_) {
-          // If fetch fails, continue to create new conversation
-        }
-      }
-
+      // Always start with a fresh empty conversation
       final repo = ref.read(chatRepositoryProvider);
       final created = await repo.createConversation();
+      
       // Check if provider is still mounted after async operation
       if (!ref.mounted) return;
 
@@ -233,6 +185,40 @@ class ChatNotifier extends _$ChatNotifier {
         isInitializing: false,
         error: 'Unable to start a new conversation right now.',
       );
+    }
+  }
+
+  Future<void> deleteConversation(String conversationId) async {
+    try {
+      final repo = ref.read(chatRepositoryProvider);
+      await repo.deleteConversation(conversationId);
+      
+      if (!ref.mounted) return;
+
+      // Remove from local state
+      final updatedMessages = Map<String, List<Message>>.from(state.messages);
+      updatedMessages.remove(conversationId);
+
+      // If we deleted the current conversation, create a new one
+      if (state.currentConversationId == conversationId) {
+        final created = await repo.createConversation();
+        if (!ref.mounted) return;
+
+        state = state.copyWith(
+          currentConversationId: created.id,
+          messages: updatedMessages,
+        );
+      } else {
+        state = state.copyWith(messages: updatedMessages);
+      }
+
+      // Clear from cache
+      await ref.read(chatLocalCacheProvider).clearConversation(conversationId);
+
+      // Refresh conversations list
+      ref.invalidate(conversationsProvider);
+    } catch (_) {
+      // Silently fail or show error
     }
   }
 
