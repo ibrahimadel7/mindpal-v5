@@ -17,18 +17,27 @@ class MindPalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       decoration: BoxDecoration(
         color: color ?? Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: [
-          BoxShadow(
-            color: MindPalColors.ink900.withValues(alpha: 0.09),
-            blurRadius: 40,
-            spreadRadius: -32,
-            offset: const Offset(0, 18),
-          ),
-        ],
+        border: Border.all(
+          color: isDark
+              ? MindPalColors.darkBorder.withValues(alpha: 0.6)
+              : MindPalColors.clay200.withValues(alpha: 0.5),
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: MindPalColors.ink900.withValues(alpha: 0.09),
+                  blurRadius: 40,
+                  spreadRadius: -32,
+                  offset: const Offset(0, 18),
+                ),
+              ],
       ),
       padding: padding,
       child: child,

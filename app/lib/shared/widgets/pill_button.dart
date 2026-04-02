@@ -44,6 +44,7 @@ class PillButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         );
       case PillButtonVariant.secondary:
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return FilledButton.styleFrom(
           backgroundColor: Theme.of(context).cardColor,
           foregroundColor:
@@ -52,7 +53,7 @@ class PillButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),
             side: BorderSide(
-              color: Theme.of(context).disabledColor.withValues(alpha: 0.2),
+              color: isDark ? MindPalColors.darkBorder : MindPalColors.clay200,
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

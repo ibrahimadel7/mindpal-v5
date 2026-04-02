@@ -67,7 +67,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         children: [
                           // Subtitle
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
@@ -80,19 +80,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                           ),
                           // Tab selector
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Container(
+                              width: double.infinity,
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 color: isDark
                                     ? MindPalColors.darkSurface
-                                    : MindPalColors.surfaceLow,
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                  color: isDark
-                                      ? MindPalColors.darkBorder
-                                      : MindPalColors.clay200,
-                                ),
+                                    : MindPalColors.sand100,
+                                borderRadius: BorderRadius.circular(100),
                               ),
                               child: Row(
                                 children: [
@@ -149,18 +145,18 @@ class _TabButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        height: 44,
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark ? MindPalColors.darkSurfaceHigh : MindPalColors.clay200)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(100),
         ),
         child: Center(
           child: Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               color: isSelected
                   ? (isDark
@@ -270,8 +266,8 @@ class _HabitFrequencyTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
       child: HabitPieChart(habits: state.habits),
     );
   }

@@ -40,11 +40,13 @@ class _HabitChecklistCardState extends State<HabitChecklistCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color:
-            context.isDark
+            isDark
                 ? MindPalColors.darkSurface
                 : MindPalColors.surfaceLow,
         borderRadius: BorderRadius.circular(28),
@@ -52,42 +54,66 @@ class _HabitChecklistCardState extends State<HabitChecklistCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'CHECKLIST',
             style: TextStyle(
               fontSize: 11,
-              color: MindPalColors.ink700,
+              color: isDark ? MindPalColors.darkTextSecondary : MindPalColors.ink700,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             "Today's habits",
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w600,
-              color: MindPalColors.ink900,
+              color: isDark ? MindPalColors.darkTextPrimary : MindPalColors.ink900,
             ),
           ),
           const SizedBox(height: 10),
-          ...widget.items.map((item) {
-            return Row(
-              children: [
-                Checkbox(
-                  value: item.completed,
-                  activeColor: MindPalColors.clay300,
-                  onChanged: (value) {
-                    widget.onToggle(item, value ?? false);
-                  },
+          if (widget.items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'No habits yet. Add one to start tracking!',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? MindPalColors.darkTextTertiary : MindPalColors.ink700,
+                  ),
                 ),
-                Expanded(child: Text(item.name)),
-                IconButton(
-                  onPressed: () => widget.onDelete(item.id),
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
-            );
-          }),
+              ),
+            )
+          else
+            ...widget.items.map((item) {
+              return Row(
+                children: [
+                  Checkbox(
+                    value: item.completed,
+                    activeColor: MindPalColors.clay300,
+                    onChanged: (value) {
+                      widget.onToggle(item, value ?? false);
+                    },
+                  ),
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: TextStyle(
+                        color: isDark ? MindPalColors.darkTextPrimary : MindPalColors.ink900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => widget.onDelete(item.id),
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: isDark ? MindPalColors.darkTextSecondary : MindPalColors.ink700,
+                    ),
+                  ),
+                ],
+              );
+            }),
           const SizedBox(height: 8),
           if (_showAdd)
             Row(
@@ -102,7 +128,9 @@ class _HabitChecklistCardState extends State<HabitChecklistCard> {
                 PillButton(
                   label: 'Add',
                   onPressed: () async {
-                    await widget.onAdd(_controller.text.trim());
+                    final text = _controller.text.trim();
+                    if (text.isEmpty) return;
+                    await widget.onAdd(text);
                     if (mounted) {
                       _controller.clear();
                       setState(() => _showAdd = false);

@@ -22,6 +22,8 @@ class CategorySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -35,17 +37,19 @@ class CategorySelector extends StatelessWidget {
                   onSelected: (_) => onSelect(item),
                   selectedColor: MindPalColors.clay400,
                   labelStyle: TextStyle(
-                    color:
-                        selected == item ? Colors.white : MindPalColors.ink800,
+                    color: selected == item
+                        ? Colors.white
+                        : isDark
+                            ? MindPalColors.darkTextPrimary
+                            : MindPalColors.ink800,
                     fontWeight: FontWeight.w600,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  backgroundColor:
-                      Theme.of(context).brightness == Brightness.dark
-                          ? MindPalColors.darkSurfaceHigh
-                          : MindPalColors.surfaceHigh,
+                  backgroundColor: isDark
+                      ? MindPalColors.darkSurfaceHigh
+                      : MindPalColors.surfaceHigh,
                   showCheckmark: false,
                 ),
               ),

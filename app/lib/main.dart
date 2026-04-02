@@ -8,9 +8,12 @@ import 'package:mindpal_app/router.dart';
 import 'package:mindpal_app/theme.dart';
 
 void main() {
+  // Only enable device preview on web in debug mode
+  final enableDevicePreview = kIsWeb && !kReleaseMode;
+  
   runApp(
     DevicePreview(
-      enabled: !kReleaseMode,
+      enabled: enableDevicePreview,
       builder: (context) => const ProviderScope(child: MindPalApp()),
     ),
   );
@@ -22,11 +25,14 @@ class MindPalApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    final useDevicePreview = kIsWeb && !kReleaseMode;
+    
     return MaterialApp.router(
       title: 'MindPal',
       debugShowCheckedModeBanner: false,
-      locale: DevicePreview.locale(context),
-      builder: DevicePreview.appBuilder,
+      // Only use DevicePreview features on web
+      locale: useDevicePreview ? DevicePreview.locale(context) : null,
+      builder: useDevicePreview ? DevicePreview.appBuilder : null,
       theme: mindpalTheme,
       darkTheme: mindpalDarkTheme,
       themeMode: settings.darkMode ? ThemeMode.dark : ThemeMode.light,

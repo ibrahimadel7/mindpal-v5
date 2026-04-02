@@ -24,7 +24,7 @@ class MessageBubble extends StatelessWidget {
         color:
             isDark
                 ? (isUser
-                    ? MindPalColors.darkSurfaceMid
+                    ? MindPalColors.darkClay
                     : MindPalColors.darkSurface)
                 : (isUser ? MindPalColors.clay200 : Colors.white),
         borderRadius: BorderRadius.only(
@@ -35,7 +35,7 @@ class MessageBubble extends StatelessWidget {
         ),
         border:
             isUser
-                ? null
+                ? (isDark ? Border.all(color: MindPalColors.darkBorderAccent.withValues(alpha: 0.4)) : null)
                 : Border.all(
                   color:
                       isDark ? MindPalColors.darkBorder : MindPalColors.clay200,

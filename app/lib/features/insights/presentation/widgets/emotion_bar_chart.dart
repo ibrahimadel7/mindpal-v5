@@ -64,7 +64,7 @@ class EmotionBarChart extends StatelessWidget {
                             width: double.infinity,
                             height: constraints.maxHeight * heightPercent,
                             decoration: BoxDecoration(
-                              color: MindPalColors.emotionColor(item.label),
+                              color: MindPalColors.emotionColor(item.label, isDark: isDark),
                               borderRadius: BorderRadius.circular(12),
                             ),
                           );

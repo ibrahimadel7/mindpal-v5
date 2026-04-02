@@ -75,13 +75,19 @@ class MindPalEmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 34, color: MindPalColors.ink700),
+            Icon(
+              icon,
+              size: 34,
+              color: isDark ? MindPalColors.darkTextSecondary : MindPalColors.ink700,
+            ),
             const SizedBox(height: 10),
             Text(
               title,

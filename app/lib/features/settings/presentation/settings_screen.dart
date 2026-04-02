@@ -27,6 +27,7 @@ class SettingsScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final settings = ref.watch(settingsProvider);
     final settingsNotifier = ref.read(settingsProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       drawer: const AppDrawer(currentRoute: '/settings'),
@@ -48,7 +49,7 @@ class SettingsScreen extends ConsumerWidget {
             Text(
               'SETTINGS',
               style: textTheme.labelSmall?.copyWith(
-                color: MindPalColors.clay400,
+                color: isDark ? MindPalColors.darkTextTertiary : MindPalColors.clay400,
               ),
             ),
             const SizedBox(height: 6),
