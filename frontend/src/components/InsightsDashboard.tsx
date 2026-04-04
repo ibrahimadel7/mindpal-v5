@@ -244,8 +244,8 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
   return (
       <>
         <LoadingScreen isVisible={isLoadingInsights} variant="insights" />
-    <section className="h-full overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <section className="h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
         <header className="flex items-start justify-between gap-4">
           <div>
           {onOpenNavigation ? (
@@ -277,16 +277,16 @@ export default function InsightsDashboard({ onOpenNavigation }: InsightsDashboar
         </header>
 
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_290px]">
-          <div className="space-y-5">
-            <article className="rounded-[1.85rem] bg-[linear-gradient(170deg,rgba(255,255,255,0.98)_0%,rgba(248,244,238,0.94)_100%)] p-5 shadow-soft sm:p-6">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_290px]">
+          <div className="space-y-4">
+            <article className="rounded-[1.85rem] bg-[linear-gradient(170deg,rgba(255,255,255,0.98)_0%,rgba(248,244,238,0.94)_100%)] p-4 shadow-soft sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <h2 className="font-heading text-[1.9rem] leading-none text-ink-900 sm:text-[2.05rem]">Emotion Frequency</h2>
                 <span className="mt-1 rounded-full bg-clay-100/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-700">All emotions</span>
               </div>
 
               {emotionFrequencyData.length ? (
-                <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] items-end gap-3 sm:gap-4">
+                <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] items-end gap-2.5 sm:gap-3">
                   {emotionFrequencyData.map((item) => (
                     <div key={item.label} className="flex w-full flex-col items-center gap-2.5">
                       <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-700/75 sm:text-xs">

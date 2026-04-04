@@ -25,6 +25,11 @@ import type { Conversation, InsightsBundle, Message } from '../types/api'
 import { AppStateContext, type AppState } from './AppStateStore'
 
 const USER_ID = 1
+const USER_PROFILE = {
+  displayName: 'IC',
+  initials: 'IC',
+  planLabel: 'Free',
+}
 const SELECTED_CONVERSATION_KEY = 'mindpal:selectedConversationId'
 
 function sortConversations(conversations: Conversation[]): Conversation[] {
@@ -304,7 +309,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
                   message.id === tempAssistantId
                     ? {
                         ...message,
-                        content: payload.response || message.content,
+                        content:
+                          payload.response && payload.response.length >= message.content.length
+                            ? payload.response
+                            : message.content,
                         id: payload.assistant_message_id,
                         timestamp: payload.timestamp,
                       }
@@ -327,7 +335,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
                     message.id === tempAssistantId
                       ? {
                           ...message,
-                          content: payload.response || message.content,
+                          content:
+                            payload.response && payload.response.length >= message.content.length
+                              ? payload.response
+                              : message.content,
                           id: persistedId,
                           timestamp: persistedTimestamp,
                         }
@@ -387,6 +398,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppState>(
     () => ({
       userId: USER_ID,
+      profile: USER_PROFILE,
       conversations,
       currentConversationId,
       messagesByConversation,

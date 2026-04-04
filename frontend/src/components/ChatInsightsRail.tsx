@@ -108,7 +108,7 @@ export default function ChatInsightsRail({ className = '', onClose }: ChatInsigh
     >
       <div className="flex h-full min-h-0 flex-col gap-5">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-ink-700">Today</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-ink-700">Today</p>
           {onClose ? (
             <button
               type="button"
@@ -125,9 +125,9 @@ export default function ChatInsightsRail({ className = '', onClose }: ChatInsigh
         </div>
 
         <section>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-ink-700/70">Today's Mood Map</p>
-          <article className="mt-3 rounded-[1.1rem] border border-clay-200/80 bg-clay-100/80 px-4 py-5">
-            <p className="text-3xl font-semibold text-clay-400">{moodSummary.mood}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-700/70">Today's Mood Map</p>
+          <article className="mt-3 rounded-panel border border-clay-200/80 bg-clay-100/80 px-5 py-6">
+            <p className="text-[2rem] font-semibold leading-none text-clay-400">{moodSummary.mood}</p>
             <p className="mt-1 text-xs uppercase tracking-[0.08em] text-ink-700/75">
               Based on {moodSummary.entryCount} insight entries today
             </p>
@@ -135,9 +135,9 @@ export default function ChatInsightsRail({ className = '', onClose }: ChatInsigh
           </article>
         </section>
 
-        <article className="rounded-[1.15rem] bg-[#1d1814] px-4 py-5 text-center text-sand-50 shadow-soft">
-          <p className="text-3xl leading-none">{streak}</p>
-          <p className="mt-1 text-xl font-semibold">Day Streak</p>
+        <article className="rounded-panel bg-[#1d1814] px-5 py-6 text-center text-sand-50 shadow-soft">
+          <p className="text-[2rem] leading-none">{streak}</p>
+          <p className="mt-1 text-lg font-semibold">Day Streak</p>
           <p className="mt-1 text-[11px] uppercase tracking-[0.12em] text-sand-100/70">You're doing great</p>
         </article>
       </div>

@@ -1,8 +1,15 @@
 import { createContext } from 'react'
 import type { Conversation, InsightsBundle, Message } from '../types/api'
 
+export interface UserProfileSummary {
+  displayName: string
+  initials: string
+  planLabel: string
+}
+
 export interface AppState {
   userId: number
+  profile: UserProfileSummary
   conversations: Conversation[]
   currentConversationId: number | null
   messagesByConversation: Record<number, Message[]>

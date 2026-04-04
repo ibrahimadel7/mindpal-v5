@@ -169,28 +169,28 @@ function RecommendationFocusCard({
         ) : null}
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-4 space-y-2.5">
         <button
           type="button"
           onClick={() => void onPrimary()}
           disabled={isPrimaryDisabled}
-          className="flex w-full items-center justify-center rounded-full bg-ink-900 px-4 py-4 text-sm font-semibold text-white transition duration-200 hover:-translate-y-px hover:bg-ink-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center rounded-full bg-ink-900 px-4 py-3 text-sm font-semibold text-white transition duration-200 hover:-translate-y-px hover:bg-ink-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {primaryLabel}
         </button>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <button
             type="button"
             onClick={onSkip}
-            className="flex-1 rounded-full border border-clay-200 bg-white px-4 py-3 text-sm font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98]"
+            className="flex-1 rounded-full border border-clay-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98]"
           >
             Skip
           </button>
           <button
             type="button"
             onClick={onNext}
-            className="flex-1 rounded-full border border-clay-200 bg-white px-4 py-3 text-sm font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98]"
+            className="flex-1 rounded-full border border-clay-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink-700 transition duration-200 hover:-translate-y-px hover:bg-sand-100 active:scale-[0.98]"
           >
             Next
           </button>
@@ -226,7 +226,7 @@ function HabitSummary({ checklist, activeItemIds, onToggleHabit, onRemoveHabit, 
   }
 
   return (
-    <section className="rounded-[1.5rem] border border-clay-200 bg-white/96 p-5 shadow-soft sm:p-6">
+    <section className="rounded-[1.5rem] border border-clay-200 bg-white/96 p-4 shadow-soft sm:p-5">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -244,13 +244,13 @@ function HabitSummary({ checklist, activeItemIds, onToggleHabit, onRemoveHabit, 
       </button>
 
       {isOpen ? (
-        <div className="mt-4 space-y-3">
+        <div className="mt-3 space-y-2.5">
           {checklist?.habits.length ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {checklist.habits.map((item) => {
                 const isBusy = activeItemIds.includes(item.habit.id)
                 return (
-                  <div key={item.habit.id} className="flex items-center gap-3 rounded-[1rem] border border-clay-200 bg-sand-50/70 px-3 py-3">
+                  <div key={item.habit.id} className="flex items-center gap-2.5 rounded-[1rem] border border-clay-200 bg-sand-50/70 px-3 py-2.5">
                     <input
                       type="checkbox"
                       checked={item.is_completed}
@@ -280,7 +280,7 @@ function HabitSummary({ checklist, activeItemIds, onToggleHabit, onRemoveHabit, 
             </p>
           )}
 
-          <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-2 sm:flex-row">
+          <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-1.5 sm:flex-row">
             <input
               type="text"
               value={newHabitName}
@@ -597,15 +597,6 @@ export default function RecommendationsPage() {
 
           {pageError ? <p className="rounded-[1rem] border border-clay-200 bg-clay-100 px-4 py-3 text-sm text-ink-800">{pageError}</p> : null}
 
-          <HabitSummary
-            checklist={checklist}
-            activeItemIds={activeItemIds}
-            onToggleHabit={handleToggleHabit}
-            onRemoveHabit={handleRemoveHabit}
-            onAddHabit={handleAddHabit}
-            isAddingHabit={isAddingHabit}
-          />
-
           <RecommendationFocusCard
             item={currentItem}
             currentIndex={currentItemIndex}
@@ -633,6 +624,15 @@ export default function RecommendationsPage() {
             }}
             onNext={advanceToNextItem}
             onSkip={advanceToNextItem}
+          />
+
+          <HabitSummary
+            checklist={checklist}
+            activeItemIds={activeItemIds}
+            onToggleHabit={handleToggleHabit}
+            onRemoveHabit={handleRemoveHabit}
+            onAddHabit={handleAddHabit}
+            isAddingHabit={isAddingHabit}
           />
 
           <div className="flex items-center gap-2 pb-1">

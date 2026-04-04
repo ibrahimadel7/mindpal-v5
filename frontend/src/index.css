@@ -16,7 +16,9 @@ body {
   overflow: hidden;
   font-family: 'Plus Jakarta Sans', sans-serif;
   color: #3f372f;
-  background: #f8f6f2;
+  background:
+    radial-gradient(circle at top left, rgba(226, 230, 223, 0.55), transparent 32%),
+    linear-gradient(180deg, #f8f6f2 0%, #f4efe8 100%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -64,6 +66,6 @@ body {
   }
 
   .subtle-icon-button {
-    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border border-clay-200/85 bg-white/90 text-ink-700/85 transition-colors duration-200 hover:border-clay-300 hover:bg-white hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 focus-visible:ring-offset-2;
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-clay-200/85 bg-white/90 text-ink-700/85 transition-colors duration-200 hover:border-clay-300 hover:bg-white hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 focus-visible:ring-offset-2;
   }
 }

@@ -12,6 +12,7 @@ interface ChatWindowProps {
 
 export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
   const [draft, setDraft] = useState('')
+  const [thinkingPhase, setThinkingPhase] = useState(0)
   const bottomRef = useRef<HTMLDivElement | null>(null)
   const {
     currentConversationId,
@@ -21,6 +22,12 @@ export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
     isInitializing,
     streamingMessageId,
   } = useAppState()
+
+  const thinkingPhases = [
+    'Reading your message...',
+    'Looking at patterns...',
+    'Forming a response...',
+  ]
 
   const messages = useMemo(() => {
     if (!currentConversationId) {
@@ -40,11 +47,24 @@ export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isSending])
 
+  useEffect(() => {
+    if (!isSending) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      setThinkingPhase((prev) => (prev + 1) % thinkingPhases.length)
+    }, 1500)
+
+    return () => clearInterval(interval)
+  }, [isSending, streamingMessageId, thinkingPhases.length])
+
   const handleSend = () => {
     const trimmed = draft.trim()
     if (!trimmed) {
       return
     }
+    setThinkingPhase(0)
     setDraft('')
     void sendMessage(trimmed)
   }
@@ -52,12 +72,12 @@ export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
   if (!showConversationLayout) {
     return (
       <section className="flex h-full min-h-0 flex-col">
-        <div className="flex flex-1 items-center justify-center px-6 py-10 sm:px-8">
-          <div className="w-full max-w-[760px] animate-rise text-center">
-            <h1 className="mx-auto max-w-3xl font-heading text-[34px] font-semibold leading-tight text-ink-900 sm:text-[42px]">
+        <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10 sm:py-16">
+          <div className="w-full max-w-[820px] animate-rise text-center">
+            <h1 className="mx-auto max-w-3xl font-heading text-[36px] font-semibold leading-tight text-ink-900 sm:text-[48px]">
               {welcomeText}
             </h1>
-            <div className="mx-auto mt-8 w-full max-w-[720px]">
+            <div className="mx-auto mt-10 w-full max-w-[760px]">
               <ChatInput
                 value={draft}
                 onChange={setDraft}
@@ -68,7 +88,7 @@ export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
                 variant="empty"
               />
             </div>
-            <div className="mx-auto max-w-[720px]">
+            <div className="mx-auto max-w-[760px]">
               <SuggestionChips onSelect={setDraft} />
             </div>
           </div>
@@ -79,9 +99,9 @@ export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6">
-        <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6">
-          <p className="rounded-lg border border-clay-200 bg-sand-100 px-3 py-2 text-xs text-ink-700/80">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6">
+          <p className="rounded-lg border border-clay-200 bg-sand-100 px-4 py-3 text-sm text-ink-700/80">
             MindPal can reference your past chats in this account. Ask for quotes or timestamps if you want exact recall.
           </p>
           {isInitializing ? <p className="text-sm text-ink-700/70">Loading your reflection...</p> : null}
@@ -90,15 +110,9 @@ export default function ChatWindow({ onOpenInsights }: ChatWindowProps) {
               key={`${message.id}-${message.timestamp}`}
               message={message}
               isStreaming={message.role === 'assistant' && message.id === streamingMessageId}
+              thinkingLabel={thinkingPhases[thinkingPhase]}
             />
           ))}
-          {isSending && !streamingMessageId ? (
-            <div className="flex justify-start">
-              <div className="rounded-bubble rounded-bl-md border border-clay-200 bg-sand-100 px-4 py-2 text-sm text-ink-700">
-                MindPal is reflecting...
-              </div>
-            </div>
-          ) : null}
           <div ref={bottomRef} />
         </div>
       </div>

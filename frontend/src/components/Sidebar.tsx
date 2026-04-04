@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import ReflectionList from './ReflectionList'
+import ProfileMenu from './ProfileMenu'
 import { useAppState } from '../state/useAppState'
 
 interface SidebarProps {
@@ -40,7 +41,7 @@ function RecommendationsIcon() {
 
 export default function Sidebar({ className = '', onNavigate, onClose, isCollapsed = false, onToggleCollapse, hideNav = false }: SidebarProps) {
   const navigate = useNavigate()
-  const { conversations, currentConversationId, createConversation, removeConversation, selectConversation, isDeleting } =
+  const { conversations, currentConversationId, createConversation, profile, removeConversation, selectConversation, isDeleting } =
     useAppState()
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -56,9 +57,9 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
   if (isCollapsed) {
     return (
       <aside
-        className={`h-full shrink-0 overflow-hidden border-r border-clay-200/80 bg-[#f3efe9] shadow-[10px_0_38px_-35px_rgba(62,49,38,0.5)] transition-[width] duration-200 ease-in-out w-16 ${className}`}
+        className={`h-full shrink-0 overflow-visible border-r border-clay-200/80 bg-[#f3efe9] shadow-[10px_0_38px_-35px_rgba(62,49,38,0.5)] transition-[width] duration-200 ease-in-out w-16 ${className}`}
       >
-        <div className="flex h-full flex-col items-center gap-3 py-4">
+          <div className="flex h-full flex-col items-center gap-3 py-4">
           <button
             type="button"
             onClick={onToggleCollapse}
@@ -69,7 +70,7 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
             <img src="/logo.svg" alt="MindPal" className="h-8 w-8 rounded-full object-cover" />
           </button>
 
-          <div className="mt-2 flex flex-col items-center gap-1">
+          <div className="mt-2 flex flex-col items-center gap-1.5">
             <NavLink to="/chat" onClick={onNavigate} title="Chat" className={collapsedNavLinkClass}>
               <ChatIcon />
             </NavLink>
@@ -80,6 +81,10 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
               <RecommendationsIcon />
             </NavLink>
           </div>
+
+          <div className="mt-auto flex w-full justify-center px-2 pb-1">
+            <ProfileMenu profile={profile} isCollapsed />
+          </div>
         </div>
       </aside>
     )
@@ -87,15 +92,15 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
 
   return (
     <aside
-      className={`h-full shrink-0 overflow-hidden border-r border-clay-200/80 bg-[#f3efe9] px-5 py-5 shadow-[10px_0_38px_-35px_rgba(62,49,38,0.5)] transition-[width] duration-200 ease-in-out w-[344px] ${className}`}
+      className={`h-full shrink-0 overflow-visible border-r border-clay-200/80 bg-[#f3efe9] px-4 py-4 shadow-[10px_0_38px_-35px_rgba(62,49,38,0.5)] transition-[width] duration-200 ease-in-out w-[21.5rem] ${className}`}
     >
-      <div className="flex h-full min-h-0 flex-col gap-5">
-        <div className="flex items-center justify-between gap-3 rounded-[1.15rem] bg-white/80 px-3 py-3">
-          <div className="flex items-center gap-3">
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="flex items-center justify-between gap-3 rounded-panel bg-white/80 px-4 py-3">
+          <div className="flex items-center gap-3.5">
             <img src="/logo.svg" alt="MindPal" className="h-9 w-9 rounded-full object-cover" />
             <div>
-              <p className="text-xl font-semibold tracking-tight text-ink-900">MindPal</p>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-ink-700/75">Insights Dashboard</p>
+              <p className="text-[1.05rem] font-semibold tracking-tight text-ink-900">MindPal</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-ink-700/72">Insights Dashboard</p>
             </div>
           </div>
           {onToggleCollapse ? (
@@ -125,7 +130,7 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
         </div>
 
         {!hideNav && (
-          <nav className="grid grid-cols-2 gap-2 rounded-[1.1rem] bg-white/95 p-1.5 shadow-soft md:grid-cols-1">
+          <nav className="grid grid-cols-2 gap-1.5 rounded-panel bg-white/95 p-1.5 shadow-soft md:grid-cols-1">
             <NavLink to="/chat" onClick={onNavigate} className={navLinkClass}>
               Chat
             </NavLink>
@@ -138,13 +143,13 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
           </nav>
         )}
 
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-ink-700/65">Recent Entries</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-700/65">Recent Entries</p>
 
         <button
           type="button"
           onClick={() => void createConversation()}
           disabled={isDeleting}
-          className="rounded-[1rem] bg-clay-200 px-4 py-3 text-left text-sm font-semibold text-ink-900 transition hover:bg-clay-300 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-[1rem] bg-clay-200 px-4 py-2.5 text-left text-sm font-semibold text-ink-900 transition hover:bg-clay-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
           + New Reflection
         </button>
@@ -165,7 +170,10 @@ export default function Sidebar({ className = '', onNavigate, onClose, isCollaps
           />
         </div>
 
-        <p className="pt-1 text-xs text-ink-700/70">Your emotional journal</p>
+        <div className="mt-auto flex flex-col gap-2 pt-1">
+          <ProfileMenu profile={profile} />
+          <p className="text-sm text-ink-700/70">Your emotional journal</p>
+        </div>
       </div>
     </aside>
   )

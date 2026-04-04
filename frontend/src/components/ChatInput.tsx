@@ -43,8 +43,8 @@ export default function ChatInput({ value, isSending, variant = 'docked', disabl
         <div
           className={
             isEmptyVariant
-              ? 'flex items-end gap-3 rounded-[1.9rem] border border-clay-200/90 bg-white/95 px-4 py-3 shadow-soft transition-all duration-300'
-              : 'flex items-end gap-3 rounded-[1.75rem] border border-clay-200 bg-white px-4 py-3 shadow-soft'
+              ? 'flex items-end gap-3 rounded-card border border-clay-200/90 bg-white/95 px-4 py-3 shadow-soft transition-all duration-300'
+              : 'flex items-end gap-3 rounded-card border border-clay-200 bg-white px-4 py-3 shadow-soft'
           }
         >
           {onOpenToday ? (
@@ -72,8 +72,8 @@ export default function ChatInput({ value, isSending, variant = 'docked', disabl
             placeholder="Type your reflection here..."
             className={
               isEmptyVariant
-                ? 'max-h-44 min-h-[56px] flex-1 resize-none rounded-soft border-none bg-transparent px-1 py-3 font-body text-base leading-relaxed text-ink-800 placeholder:text-ink-700/60 focus:outline-none'
-                : 'max-h-44 min-h-[52px] flex-1 resize-none rounded-soft border-none bg-transparent px-1 py-3 font-body text-[15px] leading-relaxed text-ink-800 placeholder:text-ink-700/60 focus:outline-none'
+                ? 'max-h-44 min-h-[60px] flex-1 resize-none rounded-soft border-none bg-transparent px-1 py-3 font-body text-base leading-relaxed text-ink-800 placeholder:text-ink-700/60 focus:outline-none'
+                : 'max-h-44 min-h-[56px] flex-1 resize-none rounded-soft border-none bg-transparent px-1 py-3 font-body text-base leading-relaxed text-ink-800 placeholder:text-ink-700/60 focus:outline-none'
             }
           />
           <button

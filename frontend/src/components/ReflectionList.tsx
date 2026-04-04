@@ -18,13 +18,13 @@ export default function ReflectionList({ reflections, activeId, onSelect, onDele
   }
 
   return (
-    <ul className="space-y-2.5">
+    <ul className="space-y-2">
       {reflections.map((reflection) => {
         const isActive = reflection.id === activeId
         return (
           <li key={reflection.id}>
             <div
-              className={`group flex items-center gap-2 rounded-soft border px-3 py-2.5 transition ${
+              className={`group flex items-center gap-3 rounded-soft border px-3 py-2.5 transition ${
                 isActive
                   ? 'border-clay-300 bg-clay-100 text-ink-900 shadow-[0_10px_24px_-22px_rgba(63,54,47,0.72)]'
                   : 'border-transparent bg-white/72 text-ink-800 hover:border-clay-200 hover:bg-white'
@@ -42,7 +42,7 @@ export default function ReflectionList({ reflections, activeId, onSelect, onDele
                   void onDelete(reflection.id)
                 }}
                 disabled={isDeleting}
-                className="rounded-full border border-clay-200/70 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-700 opacity-100 transition hover:border-clay-300 hover:text-ink-900 md:opacity-0 md:group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full border border-clay-200/70 bg-white px-2 py-1 text-[11px] font-semibold text-ink-700 opacity-100 transition hover:border-clay-300 hover:text-ink-900 md:opacity-0 md:group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Delete reflection"
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}

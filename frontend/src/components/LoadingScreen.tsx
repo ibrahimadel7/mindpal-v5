@@ -41,11 +41,12 @@ export default function LoadingScreen({ isVisible, variant = 'chat' }: LoadingSc
     if (unmountTimerRef.current) window.clearTimeout(unmountTimerRef.current)
 
     if (isVisible) {
+      const showDelay = variant === 'initial' ? 0 : SHOW_DELAY_MS
       showTimerRef.current = window.setTimeout(() => {
         shownAtRef.current = Date.now()
         setShouldRender(true)
         window.requestAnimationFrame(() => setIsActive(true))
-      }, SHOW_DELAY_MS)
+      }, showDelay)
       return
     }
 
@@ -62,7 +63,7 @@ export default function LoadingScreen({ isVisible, variant = 'chat' }: LoadingSc
         setShouldRender(false)
       }, FADE_DURATION_MS)
     }, holdFor)
-  }, [isVisible, shouldRender])
+  }, [isVisible, shouldRender, variant])
 
   if (!shouldRender) return null
 

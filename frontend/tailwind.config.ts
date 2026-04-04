@@ -36,10 +36,13 @@ const config: Config = {
       },
       boxShadow: {
         soft: '0 18px 40px -32px rgba(50, 40, 28, 0.45)',
+        panel: '0 24px 60px -40px rgba(50, 40, 28, 0.45)',
       },
       borderRadius: {
         soft: '1.1rem',
         bubble: '1.3rem',
+        panel: '1.5rem',
+        card: '1.75rem',
       },
       keyframes: {
         rise: {
