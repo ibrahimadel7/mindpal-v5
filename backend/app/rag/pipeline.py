@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
@@ -21,12 +22,15 @@ from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.message_analysis import MessageAnalysis
 from app.schemas.analysis import EmotionDetectionResult, HabitDetectionResult
+from app.schemas.thinking import ReasoningOutput
 from app.services.chat_memory_service import ChatMemoryService
+from app.services.context_window_service import ContextWindowService
 from app.services.emotion_service import EmotionService
 from app.services.graph_service import GraphService
 from app.services.habit_service import HabitService
 from app.services.llm_service import LLMService
 from app.services.memory_service import MemoryService
+from app.services.thinking_service import ThinkingService
 from app.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
@@ -43,8 +47,25 @@ class PreparedGenerationContext:
     user_text: str
     emotions: list[dict[str, Any]]
     habits: list[dict[str, Any]]
+    reasoning_output: ReasoningOutput | None
+    response_plan: "ResponsePlan"
     response_max_tokens: int | None
     final_prompt: str
+
+
+@dataclass(frozen=True)
+class ResponsePlan:
+    """Compact, deterministic guidance for shaping the assistant reply."""
+
+    label: str
+    min_sentences: int
+    max_sentences: int
+    max_tokens: int
+    acknowledge_user: bool
+    ask_follow_up: bool
+    use_bullets: bool
+    tone: str
+    focus: str
 
 
 class RAGPipeline:
@@ -61,6 +82,8 @@ class RAGPipeline:
         chat_memory_service: ChatMemoryService | None = None,
         memory_service: MemoryService | None = None,
         analysis_service: AnalysisService | None = None,
+        context_window_service: ContextWindowService | None = None,
+        thinking_service: ThinkingService | None = None,
     ) -> None:
         self.settings = get_settings()
         self.llm = llm_service or LLMService()
@@ -70,8 +93,15 @@ class RAGPipeline:
         self.graph = graph_service or GraphService()
         self.analytics = analytics_service or TimePatternAnalytics()
         self.memory = chat_memory_service or ChatMemoryService(self.llm)
-        self.persistent_memory = memory_service or MemoryService(self.llm, self.vector, self.graph)
+        self.persistent_memory = memory_service or MemoryService(self.llm, self.vector)
         self.analysis = analysis_service or AnalysisService(self.llm)
+        self.thinking = thinking_service or ThinkingService(self.llm)
+        self.context_window = context_window_service or ContextWindowService(
+            self.llm,
+            self.memory,
+            self.persistent_memory,
+            self.vector,
+        )
         self.placeholder_titles = {"New Reflection", "New Conversation"}
         self.max_generated_title_words = 2
 
@@ -83,6 +113,7 @@ class RAGPipeline:
             user_text=user_text,
         )
         assistant_text = await self.llm.generate_chat(context.final_prompt, max_tokens=context.response_max_tokens)
+        assistant_text = self._normalize_assistant_text(assistant_text, context.response_plan)
         assistant_message = await self._finalize_assistant_response(
             db=db,
             context=context,
@@ -134,13 +165,14 @@ class RAGPipeline:
         except Exception as exc:  # noqa: BLE001
             stream_error = exc
 
-        assistant_text = "".join(streamed_parts).strip()
+        assistant_text = self._normalize_assistant_text("".join(streamed_parts), context.response_plan)
         if not assistant_text:
             if stream_error is None:
                 assistant_text = await self.llm.generate_chat(
                     context.final_prompt,
                     max_tokens=context.response_max_tokens,
                 )
+                assistant_text = self._normalize_assistant_text(assistant_text, context.response_plan)
             else:
                 # If streaming fails before any content arrives, attempt one full completion
                 # to avoid surfacing a disconnect banner for recoverable provider hiccups.
@@ -149,6 +181,7 @@ class RAGPipeline:
                         context.final_prompt,
                         max_tokens=context.response_max_tokens,
                     )
+                    assistant_text = self._normalize_assistant_text(assistant_text, context.response_plan)
                 except Exception as recovery_exc:  # noqa: BLE001
                     logger.warning(
                         "Streaming recovery generation failed for conversation %s user %s: %s",
@@ -238,6 +271,7 @@ class RAGPipeline:
         await db.flush()
 
         now = user_message.timestamp or datetime.utcnow()
+        small_talk = self._is_small_talk_message(user_text)
         await self.vector.upsert_message_embedding(
             vector_id=f"msg-{user_message.id}",
             content=user_text,
@@ -250,9 +284,16 @@ class RAGPipeline:
             role=MessageRole.USER.value,
         )
 
-        if self._is_small_talk_message(user_text):
+        if small_talk:
             emotions = [{"label": "neutral", "confidence": 0.6}]
             habits: list[dict[str, Any]] = []
+            response_plan = self._plan_response(
+                user_text=user_text,
+                emotions=emotions,
+                habits=habits,
+                recall_intent=False,
+                supportive_mode=False,
+            )
             analysis = MessageAnalysis(
                 message_id=user_message.id,
                 emotions_json={"emotions": emotions},
@@ -278,8 +319,10 @@ class RAGPipeline:
                 user_text=user_text,
                 emotions=emotions,
                 habits=habits,
-                response_max_tokens=64,
-                final_prompt=self._build_small_talk_prompt(user_text),
+                reasoning_output=None,
+                response_plan=response_plan,
+                response_max_tokens=response_plan.max_tokens,
+                final_prompt=self._build_small_talk_prompt(user_text, response_plan=response_plan),
             )
 
         emotion_result: EmotionDetectionResult = await self.emotion.detect_emotions(user_text)
@@ -375,6 +418,40 @@ class RAGPipeline:
                 ]
             )
 
+        context_window = await self.context_window.build_context_window(
+            db,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            user_text=user_text,
+        )
+
+        memory_candidates = [
+            str(item.get("content", "")).strip()
+            for item in persistent_memories
+            if str(item.get("content", "")).strip()
+        ]
+        if not memory_candidates:
+            memory_candidates = [item.strip() for item in recent_memories if item.strip()]
+
+        reasoning_output = await self.thinking.reason(
+            user_text=user_text,
+            conversation_context=context_window.get("conversation") or history_block,
+            memory_context=memory_candidates,
+            emotions=emotions,
+            habits=habits,
+            recall_intent=recall_intent,
+            supportive_mode=supportive_mode,
+        )
+
+        response_plan = self._plan_response(
+            user_text=user_text,
+            emotions=emotions,
+            habits=habits,
+            recall_intent=recall_intent,
+            supportive_mode=supportive_mode,
+            reasoning_output=reasoning_output,
+        )
+
         final_prompt = self._build_prompt(
             user_text=user_text,
             history_block=history_block,
@@ -392,6 +469,9 @@ class RAGPipeline:
             habits=habits,
             recall_intent=recall_intent,
             supportive_mode=supportive_mode,
+            reasoning_output=reasoning_output,
+            response_plan=response_plan,
+            context_window=context_window,
         )
 
         # NEW: Run internal pattern analysis before finalizing prompt
@@ -437,7 +517,9 @@ class RAGPipeline:
             user_text=user_text,
             emotions=emotions,
             habits=habits,
-            response_max_tokens=160,
+            reasoning_output=reasoning_output,
+            response_plan=response_plan,
+            response_max_tokens=response_plan.max_tokens,
             final_prompt=final_prompt,
         )
 
@@ -587,8 +669,22 @@ class RAGPipeline:
         habits: list[dict],
         recall_intent: bool,
         supportive_mode: bool,
+        reasoning_output: ReasoningOutput | None = None,
+        response_plan: ResponsePlan | None = None,
+        context_window: dict[str, str] | None = None,
     ) -> str:
+        response_plan = response_plan or self._plan_response(
+            user_text=user_text,
+            emotions=emotions,
+            habits=habits,
+            recall_intent=recall_intent,
+            supportive_mode=supportive_mode,
+            reasoning_output=reasoning_output,
+        )
         memory_block = "\n".join(f"- {summary}" for summary in recent_memories) if recent_memories else "- No saved user memories yet."
+        if context_window and context_window.get("memories"):
+            memory_block = context_window["memories"]
+
         persistent_memory_block = self._format_persistent_memories(persistent_memories or [])
         quote_rule = (
             "The user appears to be asking about past chats. Prioritize historical evidence from the provided history. "
@@ -610,61 +706,256 @@ class RAGPipeline:
             "Do not require a follow-up question if it does not fit.\n"
         )
         knowledge_context = self._format_knowledge_context(kb_entries)
+        if context_window and context_window.get("kb_docs"):
+            knowledge_context = context_window["kb_docs"]
         if not knowledge_context:
             knowledge_context = "- No relevant WHO guidance matched this message."
 
+        conversation_block = history_block
+        if context_window and context_window.get("conversation"):
+            conversation_block = context_window["conversation"]
+
+        response_style_block = self._build_response_style_block(response_plan)
+        reasoning_block = self._build_reasoning_block(reasoning_output)
+        action_hint = self._action_instruction(reasoning_output)
+
         return (
-            "You are MindPal, a calm and observant mental health support assistant.\n\n"
+            "You are MindPal, a calm and supportive mental health assistant.\n\n"
             "Your role:\n\n"
-            "- Help the user reflect\n"
-            "- Gently surface patterns across time, habits, and emotions\n"
-            "- Offer small, practical suggestions when useful\n\n"
+            "- Listen and respond to what the user is sharing\n"
+            "- Only reference patterns or history if the user asks about them or if it directly helps with their current concern\n"
+            "- Offer practical suggestions only when they're relevant\n"
+            "- Never presume or diagnose\n\n"
             "--- PRIORITY ORDER ---\n"
             "Use information in this order:\n\n"
             "1. Current user message (most important)\n"
-            "2. Recent conversation context\n"
-            "3. Detected current emotions and habits\n"
-            "4. Historical patterns (trends, time patterns, associations)\n"
-            "5. Knowledge base (only if relevant)\n\n"
+            "2. Recent conversation context (if relevant)\n"
+            "3. Only reference historical patterns if the user asks or if they're directly applicable\n\n"
             "--- CONTEXT ---\n"
-            f"User memories:\n{memory_block}\n\n"
-            f"Persistent summary context window (semantic, relevant):\n{persistent_memory_block}\n\n"
-            f"Recent conversation:\n{history_block}\n\n"
-            f"{cross_history_section}"
             f"Detected current emotions: {emotions}\n"
             f"Detected habits: {habits}\n\n"
-            f"Emotion trends: {emotion_stats}\n"
-            f"Habit trends: {habit_stats}\n"
-            f"Time patterns: {time_patterns}\n\n"
-            f"Habit-emotion associations (historical co-occurrence, not causation) (non-causal signals):\n{habit_emotion_links}\n\n"
-            "Knowledge base context:\n"
-            f"{knowledge_context}\n\n"
-            "Use this information to provide the user with practical, non-clinical advice, coping strategies, and reflections.\n"
-            "Do NOT provide clinical diagnosis.\n\n"
+            f"Recent conversation:\n{conversation_block}\n\n"
+            f"{cross_history_section}"
+            "--- INTERNAL THINKING SUMMARY (DO NOT REVEAL JSON OR INTERNAL LABELS) ---\n\n"
+            f"{reasoning_block}\n\n"
+            "--- RESPONSE PLAN ---\n\n"
+            f"{response_style_block}\n\n"
             "--- RESPONSE STYLE ---\n\n"
-            "- Start with a brief, natural acknowledgment (not scripted)\n"
-            "- If useful, reflect a pattern: (\"It seems like...\", \"I might be wrong, but...\")\n"
-            "- Optionally connect habits <-> emotions or time patterns\n"
-            "- Suggest actionable habits or coping steps\n"
-            "- Offer one reflection prompt if relevant\n"
-            "- Reference crisis resources only when appropriate\n"
-            "- Optionally ask ONE gentle follow-up question\n\n"
+            "- Start with a brief, genuine acknowledgment of what they've shared\n"
+            "- Avoid sounding scripted or overly therapeutic\n"
+            "- Only mention patterns if they're highly relevant or the user asks\n"
+            "- Avoid asking follow-up questions unless they're genuinely needed for clarity\n"
+            "- Keep it natural and conversational\n\n"
             "--- RULES ---\n\n"
+            "- Do NOT presume without being asked\n"
+            "- Do NOT make speculative guesses about causes or feelings\n"
             "- Do NOT sound clinical or diagnostic\n"
             "- Do NOT present correlations as facts\n"
-            "- Do not present associations as medical or causal conclusions\n"
-            "- Avoid repeating obvious statements\n"
-            "- If no meaningful pattern exists -> just respond naturally\n"
-            "- If data is weak -> say \"I might be wrong\"\n\n"
+            "- If something is unclear, ask one simple clarifying question\n"
+            "- Otherwise, just respond naturally to what was shared\n\n"
             "--- LENGTH ---\n"
-            "Default: 1-3 sentences\n"
-            "Only go longer if the user asks for more detail\n\n"
+            f"Target: {response_plan.min_sentences}-{response_plan.max_sentences} sentences (stay brief unless more detail is needed)\n\n"
             f"Current user message:\n{user_text}\n\n"
             f"{response_style}"
             f"{quote_rule}\n"
-            "Use current detections first, then historical pattern signals.\n"
-            "Keep responses brief unless the user asks for more detail."
+            f"{action_hint}\n"
+            "Focus on being helpful and genuine, not on suggesting connections or patterns unless asked."
         )
+
+    def _plan_response(
+        self,
+        *,
+        user_text: str,
+        emotions: list[dict[str, Any]],
+        habits: list[dict[str, Any]],
+        recall_intent: bool,
+        supportive_mode: bool,
+        reasoning_output: ReasoningOutput | None = None,
+    ) -> ResponsePlan:
+        normalized_text = " ".join(user_text.lower().split())
+        emotional_signal = any(str(item.get("label", "")).strip().lower() not in {"neutral", ""} for item in emotions)
+        habit_signal = bool(habits)
+        multi_part_request = "\n" in user_text or len(re.findall(r"\b(and|also|plus|another|both)\b", normalized_text)) >= 2
+        direct_question = "?" in normalized_text or normalized_text.startswith(("what", "how", "why", "can you", "could you", "should i"))
+
+        if self._is_small_talk_message(user_text):
+            return ResponsePlan(
+                label="small_talk",
+                min_sentences=1,
+                max_sentences=1,
+                max_tokens=48,
+                acknowledge_user=True,
+                ask_follow_up=False,
+                use_bullets=False,
+                tone="warm, short, and natural",
+                focus="keep the reply brief and human",
+            )
+
+        if recall_intent:
+            plan = ResponsePlan(
+                label="history_recall",
+                min_sentences=2,
+                max_sentences=3,
+                max_tokens=140,
+                acknowledge_user=True,
+                ask_follow_up=False,
+                use_bullets=False,
+                tone="grounded and precise",
+                focus="summarize the relevant history without overexplaining",
+            )
+            return self._with_reasoning_adjustments(plan, reasoning_output)
+
+        if supportive_mode or emotional_signal:
+            plan = ResponsePlan(
+                label="supportive_reflection",
+                min_sentences=2,
+                max_sentences=3,
+                max_tokens=160,
+                acknowledge_user=True,
+                ask_follow_up=False,
+                use_bullets=False,
+                tone="calm and validating",
+                focus="acknowledge what they shared, then respond naturally",
+            )
+            return self._with_reasoning_adjustments(plan, reasoning_output)
+
+        if multi_part_request or habit_signal:
+            plan = ResponsePlan(
+                label="structured_explanation",
+                min_sentences=2,
+                max_sentences=4,
+                max_tokens=180,
+                acknowledge_user=True,
+                ask_follow_up=False,
+                use_bullets=True,
+                tone="clear and helpful",
+                focus="organize the answer into a compact explanation or steps",
+            )
+            return self._with_reasoning_adjustments(plan, reasoning_output)
+
+        if direct_question:
+            plan = ResponsePlan(
+                label="concise_answer",
+                min_sentences=2,
+                max_sentences=3,
+                max_tokens=160,
+                acknowledge_user=True,
+                ask_follow_up=False,
+                use_bullets=False,
+                tone="direct and conversational",
+                focus="answer the question plainly before adding detail",
+            )
+            return self._with_reasoning_adjustments(plan, reasoning_output)
+
+        plan = ResponsePlan(
+            label="general_support",
+            min_sentences=1,
+            max_sentences=3,
+            max_tokens=160,
+            acknowledge_user=True,
+            ask_follow_up=False,
+            use_bullets=False,
+            tone="brief, calm, and natural",
+            focus="keep the reply short unless the user needs more detail",
+        )
+        return self._with_reasoning_adjustments(plan, reasoning_output)
+
+    @staticmethod
+    def _with_reasoning_adjustments(plan: ResponsePlan, reasoning_output: ReasoningOutput | None) -> ResponsePlan:
+        if reasoning_output is None:
+            return plan
+
+        if reasoning_output.next_best_action == "ask_question":
+            return ResponsePlan(
+                label=plan.label,
+                min_sentences=plan.min_sentences,
+                max_sentences=plan.max_sentences,
+                max_tokens=plan.max_tokens,
+                acknowledge_user=plan.acknowledge_user,
+                ask_follow_up=False,
+                use_bullets=False,
+                tone=plan.tone,
+                focus=reasoning_output.response_focus or plan.focus,
+            )
+
+        if reasoning_output.next_best_action == "propose_hypothesis":
+            return ResponsePlan(
+                label=plan.label,
+                min_sentences=plan.min_sentences,
+                max_sentences=plan.max_sentences,
+                max_tokens=plan.max_tokens,
+                acknowledge_user=plan.acknowledge_user,
+                ask_follow_up=False,
+                use_bullets=False,
+                tone=plan.tone,
+                focus=reasoning_output.response_focus or plan.focus,
+            )
+
+        return plan
+
+    @staticmethod
+    def _build_reasoning_block(reasoning_output: ReasoningOutput | None) -> str:
+        if reasoning_output is None:
+            return "No structured reasoning available. Respond naturally to what the user shared."
+
+        high_confidence_hypotheses = [h for h in reasoning_output.hypotheses if h.confidence >= 0.70]
+        
+        if reasoning_output.should_reference_memory and high_confidence_hypotheses:
+            hypothesis_lines = [
+                f"- {item.cause} (confidence={item.confidence:.2f})"
+                for item in high_confidence_hypotheses[:1]
+            ]
+            hypothesis_section = f"High-confidence pattern signal:\n{chr(10).join(hypothesis_lines)}\n"
+        elif high_confidence_hypotheses:
+            hypothesis_section = f"Possible angle (low context): consider asking about {reasoning_output.missing_information[0] if reasoning_output.missing_information else 'their thoughts'}\n"
+        else:
+            hypothesis_section = ""
+
+        return (
+            f"Emotion inference: {reasoning_output.emotion} (confidence={reasoning_output.emotion_confidence:.2f})\n"
+            f"{hypothesis_section}"
+            f"Next best action: {reasoning_output.next_best_action}\n"
+            f"Response focus: {reasoning_output.response_focus}"
+        )
+
+    @staticmethod
+    def _action_instruction(reasoning_output: ReasoningOutput | None) -> str:
+        if reasoning_output is None:
+            return "Just respond naturally to what they shared. Only ask a question if you need clarification."
+
+        if reasoning_output.next_best_action == "ask_question":
+            return "If you need clarification before responding, ask one simple, natural question. Otherwise, just respond."
+        if reasoning_output.next_best_action == "propose_hypothesis":
+            return "Optionally mention one possible angle only if it feels natural and relevant."
+        return "Acknowledge what they shared and respond supportively."
+
+    @staticmethod
+    def _build_response_style_block(response_plan: ResponsePlan) -> str:
+        return (
+            f"Plan type: {response_plan.label}\n"
+            f"Tone: {response_plan.tone}\n"
+            f"Focus: {response_plan.focus}\n"
+            f"Start with a brief acknowledgment: {'yes' if response_plan.acknowledge_user else 'no'}\n"
+            f"Ask one follow-up question at most: {'yes' if response_plan.ask_follow_up else 'no'}\n"
+            f"Use bullets only if they make the answer clearer: {'yes' if response_plan.use_bullets else 'no'}\n"
+            f"Aim for {response_plan.min_sentences}-{response_plan.max_sentences} sentences."
+        )
+
+    @staticmethod
+    def _normalize_assistant_text(assistant_text: str, response_plan: ResponsePlan) -> str:
+        compact = " ".join(assistant_text.split()).strip()
+        if not compact:
+            return ""
+
+        if not response_plan.use_bullets:
+            compact = re.sub(r"(?m)^[\s>*-•]+", "", compact)
+            compact = compact.replace(" - ", "; ")
+
+        sentences = re.split(r"(?<=[.!?])\s+", compact)
+        if len(sentences) > response_plan.max_sentences:
+            compact = " ".join(sentences[: response_plan.max_sentences]).strip()
+
+        return compact
 
     @staticmethod
     def _format_persistent_memories(entries: list[dict[str, Any]]) -> str:
@@ -769,12 +1060,14 @@ class RAGPipeline:
         return normalized in small_talk
 
     @staticmethod
-    def _build_small_talk_prompt(user_text: str) -> str:
+    def _build_small_talk_prompt(user_text: str, *, response_plan: ResponsePlan) -> str:
         return (
             "You are MindPal, a warm and natural assistant.\n\n"
             f"User message:\n{user_text}\n\n"
-            "Reply with exactly one short sentence that feels human, relaxed, and slightly varied in tone "
-            "(not repetitive or robotic). No follow-up question."
+            f"Reply with exactly {response_plan.max_sentences} short sentence. "
+            f"Tone: {response_plan.tone}. "
+            "Keep it human, relaxed, and slightly varied in tone (not repetitive or robotic). "
+            "No follow-up question."
         )
 
     @staticmethod

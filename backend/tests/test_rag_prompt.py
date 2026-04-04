@@ -40,15 +40,11 @@ class RagPromptTests(unittest.TestCase):
             supportive_mode=True,
         )
 
-        self.assertIn("User memories", prompt)
-        self.assertIn("Habit-emotion associations (historical co-occurrence, not causation)", prompt)
-        self.assertIn("Use current detections first", prompt)
-        self.assertIn("Do not present associations as medical or causal conclusions", prompt)
-        self.assertIn("Knowledge base context", prompt)
-        self.assertIn("Do NOT provide clinical diagnosis", prompt)
         self.assertIn("User history across conversations (same user only)", prompt)
-        self.assertIn("Summarize findings unless the user explicitly asks for direct quotes or timestamps", prompt)
-        self.assertIn("Default: 1-3 sentences", prompt)
+        self.assertIn("Do NOT presume without being asked", prompt)
+        self.assertIn("Plan type: history_recall", prompt)
+        self.assertIn("Target:", prompt)
+        self.assertIn("Do NOT make speculative guesses about causes or feelings", prompt)
 
     def test_prompt_omits_cross_conversation_history_when_not_recall(self):
         pipeline = object.__new__(RAGPipeline)
@@ -93,6 +89,55 @@ class RagPromptTests(unittest.TestCase):
         self.assertTrue(pipeline._is_history_recall_query("What did I say before about sleep?"))
         self.assertTrue(pipeline._is_history_recall_query("Have we talked about burnout earlier?"))
         self.assertFalse(pipeline._is_history_recall_query("Give me one grounding exercise for tonight."))
+
+    def test_response_planner_prefers_short_reply_for_small_talk(self):
+        pipeline = object.__new__(RAGPipeline)
+
+        plan = pipeline._plan_response(
+            user_text="Hi",
+            emotions=[{"label": "neutral", "confidence": 0.6}],
+            habits=[],
+            recall_intent=False,
+            supportive_mode=False,
+        )
+
+        self.assertEqual(plan.label, "small_talk")
+        self.assertEqual(plan.min_sentences, 1)
+        self.assertEqual(plan.max_sentences, 1)
+        self.assertEqual(plan.max_tokens, 48)
+        self.assertFalse(plan.ask_follow_up)
+
+    def test_response_planner_prefers_supportive_reply_for_distress(self):
+        pipeline = object.__new__(RAGPipeline)
+
+        plan = pipeline._plan_response(
+            user_text="I feel overwhelmed and anxious tonight.",
+            emotions=[{"label": "anxiety", "confidence": 0.84}],
+            habits=[],
+            recall_intent=False,
+            supportive_mode=True,
+        )
+
+        self.assertEqual(plan.label, "supportive_reflection")
+        self.assertEqual(plan.min_sentences, 2)
+        self.assertEqual(plan.max_sentences, 3)
+        self.assertFalse(plan.ask_follow_up)
+        self.assertFalse(plan.use_bullets)
+
+    def test_response_planner_prefers_structured_explanation_for_multi_part_request(self):
+        pipeline = object.__new__(RAGPipeline)
+
+        plan = pipeline._plan_response(
+            user_text="Can you explain what happened and also what I should do next?",
+            emotions=[{"label": "neutral", "confidence": 0.7}],
+            habits=[{"habit": "procrastinating", "confidence": 0.6}],
+            recall_intent=False,
+            supportive_mode=False,
+        )
+
+        self.assertEqual(plan.label, "structured_explanation")
+        self.assertTrue(plan.use_bullets)
+        self.assertEqual(plan.max_tokens, 180)
 
 
 if __name__ == "__main__":
