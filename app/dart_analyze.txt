@@ -1,0 +1,49 @@
+Analyzing app...
+
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:195:7 - Missing concrete implementation of 'StatelessWidget.build'. Try implementing the missing method, or make the class abstract. - non_abstract_class_inherits_abstract_member
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:196:3 - Can't define the 'const' constructor because the field 'isDark' is initialized with a non-constant value. Try initializing the field to a constant value, or removing the keyword 'const' from the constructor. - const_constructor_with_field_initialized_by_non_const
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:200:20 - Methods can't be invoked in constant expressions. - const_eval_method_invocation
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:200:29 - Undefined name 'context'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:202:5 - Expected a class member. Try placing this code inside a class member. - expected_class_member
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:202:12 - 'Container' must have a method body because '_TimerCard' isn't abstract. Try making '_TimerCard' abstract, or adding a body to 'Container'. - concrete_class_with_abstract_member
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:203:12 - Named parameters must be enclosed in curly braces ('{' and '}'). Try surrounding the named parameters in curly braces. - named_parameter_outside_group
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:203:12 - Using a colon as the separator before a default value is no longer supported. Try replacing the colon with an equal sign. - obsolete_colon_for_default_value
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:204:14 - Named parameters must be enclosed in curly braces ('{' and '}'). Try surrounding the named parameters in curly braces. - named_parameter_outside_group
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:204:14 - Using a colon as the separator before a default value is no longer supported. Try replacing the colon with an equal sign. - obsolete_colon_for_default_value
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:205:17 - Named parameters must be enclosed in curly braces ('{' and '}'). Try surrounding the named parameters in curly braces. - named_parameter_outside_group
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:205:17 - Using a colon as the separator before a default value is no longer supported. Try replacing the colon with an equal sign. - obsolete_colon_for_default_value
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:205:19 - The default value of an optional parameter must be constant. - non_constant_default_value
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:209:12 - Named parameters must be enclosed in curly braces ('{' and '}'). Try surrounding the named parameters in curly braces. - named_parameter_outside_group
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:209:12 - Using a colon as the separator before a default value is no longer supported. Try replacing the colon with an equal sign. - obsolete_colon_for_default_value
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:209:14 - The default value of an optional parameter must be constant. - non_constant_default_value
+  error - lib/features/recommendations/presentation/recommendations_screen.dart:219:1 - Expected a method, getter, setter or operator declaration. This appears to be incomplete code. Try removing it or completing it. - expected_executable
+  error - lib/shared/widgets/shimmer_loader.dart:5:7 - Missing concrete implementation of 'StatelessWidget.build'. Try implementing the missing method, or make the class abstract. - non_abstract_class_inherits_abstract_member
+  error - lib/shared/widgets/shimmer_loader.dart:6:3 - Can't define the 'const' constructor because the field 'isDark' is initialized with a non-constant value. Try initializing the field to a constant value, or removing the keyword 'const' from the constructor. - const_constructor_with_field_initialized_by_non_const
+  error - lib/shared/widgets/shimmer_loader.dart:17:20 - Methods can't be invoked in constant expressions. - const_eval_method_invocation
+  error - lib/shared/widgets/shimmer_loader.dart:17:29 - Undefined name 'context'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib/shared/widgets/shimmer_loader.dart:19:5 - Expected a class member. Try placing this code inside a class member. - expected_class_member
+  error - lib/shared/widgets/shimmer_loader.dart:19:12 - All final variables must be initialized, but 'height', 'radius', and 1 others aren't. Try adding initializers for the fields. - final_not_initialized_constructor
+  error - lib/shared/widgets/shimmer_loader.dart:19:12 - The name of a constructor must match the name of the enclosing class. - invalid_constructor_name
+  error - lib/shared/widgets/shimmer_loader.dart:20:16 - Named parameters must be enclosed in curly braces ('{' and '}'). Try surrounding the named parameters in curly braces. - named_parameter_outside_group
+  error - lib/shared/widgets/shimmer_loader.dart:20:16 - Using a colon as the separator before a default value is no longer supported. Try replacing the colon with an equal sign. - obsolete_colon_for_default_value
+  error - lib/shared/widgets/shimmer_loader.dart:20:18 - The default value of an optional parameter must be constant. - non_constant_default_value
+  error - lib/shared/widgets/shimmer_loader.dart:21:21 - Named parameters must be enclosed in curly braces ('{' and '}'). Try surrounding the named parameters in curly braces. - named_parameter_outside_group
+  error - lib/shared/widgets/shimmer_loader.dart:21:21 - Using a colon as the separator before a default value is no longer supported. Try replacing the colon with an equal sign. - obsolete_colon_for_default_value
+  error - lib/shared/widgets/shimmer_loader.dart:21:23 - The default value of an optional parameter must be constant. - non_constant_default_value
+  error - lib/shared/widgets/shimmer_loader.dart:22:12 - Named parameters must be enclosed in curly braces ('{' and '}'). Try surrounding the named parameters in curly braces. - named_parameter_outside_group
+  error - lib/shared/widgets/shimmer_loader.dart:22:12 - Using a colon as the separator before a default value is no longer supported. Try replacing the colon with an equal sign. - obsolete_colon_for_default_value
+  error - lib/shared/widgets/shimmer_loader.dart:22:14 - The default value of an optional parameter must be constant. - non_constant_default_value
+  error - lib/shared/widgets/shimmer_loader.dart:32:1 - Expected a method, getter, setter or operator declaration. This appears to be incomplete code. Try removing it or completing it. - expected_executable
+   info - lib/features/recommendations/presentation/recommendations_screen.dart:202:12 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/features/recommendations/presentation/recommendations_screen.dart:202:12 - The variable name 'Container' isn't a lowerCamelCase identifier. Try changing the name to follow the lowerCamelCase style. - non_constant_identifier_names
+   info - lib/features/recommendations/presentation/recommendations_screen.dart:203:7 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/features/recommendations/presentation/recommendations_screen.dart:204:7 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/features/recommendations/presentation/recommendations_screen.dart:205:7 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/features/recommendations/presentation/recommendations_screen.dart:209:7 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/shared/widgets/shimmer_loader.dart:19:20 - Constructors for public widgets should have a named 'key' parameter. Try adding a named parameter to the constructor. - use_key_in_widget_constructors
+   info - lib/shared/widgets/shimmer_loader.dart:20:7 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/shared/widgets/shimmer_loader.dart:21:7 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/shared/widgets/shimmer_loader.dart:22:7 - Missing type annotation. Try adding a type annotation. - strict_top_level_inference
+   info - lib/theme.dart:213:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+45 issues found.

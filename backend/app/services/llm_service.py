@@ -12,6 +12,10 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+class LLMServiceError(Exception):
+    """Raised when the Groq API key is not configured and no fallback is available."""
+
+
 class LLMService:
     """Groq LLM service for chat, extraction, and embeddings."""
 
@@ -19,9 +23,17 @@ class LLMService:
         self.settings = get_settings()
         self.base_url = "https://api.groq.com/openai/v1"
 
+    @property
+    def is_configured(self) -> bool:
+        """Return True if the Groq API key is configured."""
+        return bool(self.settings.groq_api_key)
+
     def _headers(self) -> dict[str, str]:
         if not self.settings.groq_api_key:
-            raise RuntimeError("GROQ_API_KEY is not configured")
+            raise LLMServiceError(
+                "GROQ_API_KEY is not configured. "
+                "Set a valid key in your .env file or via the GROQ_API_KEY environment variable."
+            )
         return {
             "Authorization": f"Bearer {self.settings.groq_api_key}",
             "Content-Type": "application/json",
@@ -35,8 +47,18 @@ class LLMService:
             try:
                 async with httpx.AsyncClient(timeout=self.settings.llm_timeout_seconds) as client:
                     response = await client.request(method, f"{self.base_url}{path}", headers=headers, json=payload)
+                    if response.status_code == 401:
+                        raise RuntimeError(
+                            "Groq API authentication failed (401 Unauthorized). "
+                            "Check that GROQ_API_KEY is set to a valid key in your .env file. "
+                            f"Current key preview: {self.settings.groq_api_key[:8]}..."
+                            if len(self.settings.groq_api_key) > 8
+                            else "GROQ_API_KEY appears to be empty or a placeholder."
+                        )
                     response.raise_for_status()
                     return response.json()
+            except RuntimeError:
+                raise
             except Exception as exc:  # noqa: BLE001
                 last_err = exc
                 logger.warning("Groq request failed on attempt %s/%s: %s", attempt, self.settings.llm_max_retries, exc)
@@ -100,6 +122,11 @@ class LLMService:
                         headers=headers,
                         json=payload,
                     ) as response:
+                        if response.status_code == 401:
+                            raise RuntimeError(
+                                "Groq API authentication failed (401 Unauthorized). "
+                                "Check that GROQ_API_KEY is set to a valid key in your .env file."
+                            )
                         response.raise_for_status()
                         async for line in response.aiter_lines():
                             if not line or not line.startswith("data:"):
@@ -121,6 +148,8 @@ class LLMService:
                                 if token:
                                     yield token
                 return
+            except RuntimeError:
+                raise
             except Exception as exc:  # noqa: BLE001
                 last_err = exc
                 logger.warning(
@@ -134,6 +163,39 @@ class LLMService:
 
         assert last_err is not None
         raise last_err
+
+    async def stream_thinking_tokens(
+        self,
+        user_message: str,
+        context_summary: str = "",
+        *,
+        max_tokens: int = 150,
+    ) -> AsyncGenerator[str, None]:
+        """Stream brief reasoning/thinking steps before generating the main response.
+
+        Produces a concise chain-of-thought that helps the user understand
+        how MindPal is processing their message.
+        """
+        thinking_prompt = f"""You are MindPal's internal reasoning system. Given the user's message, produce a brief thinking process (2-4 short bullet points) showing how you're analyzing their input.
+
+Rules:
+- Be concise: each point should be 5-15 words
+- Use "•" for bullets
+- Focus on: emotional tone, key themes, what context might help
+- Do NOT provide the actual response - just show your reasoning
+- Do NOT use markdown headers or formatting beyond bullets
+
+User message: "{user_message}"
+{f'Context: {context_summary}' if context_summary else ''}
+
+Thinking:"""
+
+        async for token in self.stream_chat_tokens(
+            thinking_prompt,
+            temperature=0.3,
+            max_tokens=max_tokens,
+        ):
+            yield token
 
     async def generate_structured_json(
         self,

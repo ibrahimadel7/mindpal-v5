@@ -1,20 +1,27 @@
 # MindPal
 
-A personalized mental health RAG chatbot that combines real-time conversation analysis, emotion tracking, and behavioral insights to support mental wellness.
+A personalized mental health RAG chatbot that combines real-time conversation analysis, emotion tracking, and behavioral insights to support mental wellness across backend and Flutter clients.
 
 ## Overview
 
-MindPal is a FastAPI-based backend service that provides intelligent conversational support through:
+MindPal includes a FastAPI backend and a Flutter mobile/desktop client. Together they provide:
 
 - **Real-time Chat Analysis**: Process conversations with LLM-powered emotion and habit detection
 - **Vector-based Retrieval (RAG)**: Semantic search over a knowledge base using Chroma
 - **Behavioral Insights**: Track temporal patterns, emotional trends, and habit formation via NetworkX graph relationships
 - **Persistent Storage**: SQLAlchemy ORM with SQLite for structured data management
+- **Cross-platform Client**: Flutter app targeting Android, iOS, Web, Windows, Linux, and macOS
 
 ## Architecture
 
 ```
 MindPal (Root)
+├── app/                          # Flutter application
+│   ├── lib/                      # Features, routing, state, UI
+│   ├── test/                     # Widget/unit tests
+│   ├── android/ ios/ web/
+│   ├── windows/ linux/ macos/    # Platform runners
+│   └── pubspec.yaml              # Flutter dependencies & assets
 ├── backend/                      # FastAPI application server
 │   ├── app/
 │   │   ├── api/                 # REST endpoints (chat, conversations, insights)
@@ -29,6 +36,7 @@ MindPal (Root)
 │   ├── chroma_data/             # Local vector database (runtime-generated)
 │   ├── requirements.txt
 │   └── README.md                # Backend-specific setup & endpoints
+├── frontend/                     # React web client (legacy/alternate UI)
 └── README.md                     # This file
 ```
 
@@ -37,6 +45,8 @@ MindPal (Root)
 ### Prerequisites
 
 - Python 3.11+
+- Flutter SDK (stable channel)
+- Dart SDK (included with Flutter)
 - Groq API key (sign up at [console.groq.com](https://console.groq.com))
 
 ### Setup
@@ -77,7 +87,18 @@ MindPal (Root)
 
    The API will be available at `http://localhost:8000`.
 
-6. **Run the frontend (new terminal):**
+6. **Run the Flutter app (new terminal):**
+   ```bash
+   cd ../app
+   flutter pub get
+   flutter run
+   ```
+
+   Notes:
+   - Use `flutter devices` to list available targets.
+   - For web, you can run `flutter run -d chrome`.
+
+7. **Optional: Run the React frontend (new terminal):**
    ```bash
    cd ../frontend
    npm install
@@ -107,6 +128,7 @@ For backend-specific configuration, service documentation, and implementation de
 ## Key Features
 
 - **AsyncIO-based FastAPI** for high-concurrency chat API
+- **Flutter client app** for cross-platform user experiences
 - **SQLite + SQLAlchemy** for structured conversation & user data
 - **Chroma Vector Database** for semantic knowledge retrieval
 - **Groq LLM** for real-time emotion and habit classification
@@ -129,6 +151,7 @@ For backend-specific configuration, service documentation, and implementation de
 
 - View API documentation at `http://localhost:8000/docs` (Swagger UI)
 - View alternate docs at `http://localhost:8000/redoc` (ReDoc)
+- For Flutter development, run `flutter doctor` and ensure all platform toolchains are configured.
 
 
 

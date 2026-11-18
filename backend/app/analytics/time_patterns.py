@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from datetime import datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,8 @@ from app.models.message_analysis import MessageAnalysis
 from app.models.user_habit import UserHabit
 from app.models.user_habit_check import UserHabitCheck
 
+PeriodType = Literal["week", "month", "all"]
+
 
 class TimePatternAnalytics:
     """Temporal analytics for emotions and habits."""
@@ -20,6 +24,18 @@ class TimePatternAnalytics:
         if not value:
             return ""
         return value.strip().lower()
+
+    @staticmethod
+    def _get_period_start(period: PeriodType | None) -> datetime | None:
+        """Get the start datetime for the given period."""
+        if period is None or period == "all":
+            return None
+        now = datetime.utcnow()
+        if period == "week":
+            return now - timedelta(days=7)
+        elif period == "month":
+            return now - timedelta(days=30)
+        return None
 
     async def emotion_stats(self, db: AsyncSession, user_id: int) -> list[dict]:
         query = (
@@ -37,13 +53,29 @@ class TimePatternAnalytics:
 
         return [{"label": k, "count": v} for k, v in counts.most_common()]
 
-    async def habit_stats(self, db: AsyncSession, user_id: int) -> list[dict]:
+    async def habit_stats(
+        self, db: AsyncSession, user_id: int, period: PeriodType | None = None
+    ) -> list[dict]:
+        """Get habit statistics, optionally filtered by time period.
+        
+        Args:
+            db: Database session
+            user_id: User ID to filter by
+            period: Time period filter - 'week', 'month', or 'all' (default: all)
+        """
+        period_start = self._get_period_start(period)
+        
         query = (
             select(MessageAnalysis.habits_json)
             .join(Message, Message.id == MessageAnalysis.message_id)
             .join(Conversation, Conversation.id == Message.conversation_id)
             .where(Conversation.user_id == user_id)
         )
+        
+        # Apply period filter if specified
+        if period_start is not None:
+            query = query.where(Message.timestamp >= period_start)
+        
         rows = (await db.execute(query)).scalars().all()
 
         counts: Counter[str] = Counter()
@@ -53,14 +85,21 @@ class TimePatternAnalytics:
                 if label:
                     counts[label] += 1
 
-        completed_habit_names = (
-            await db.execute(
-                select(UserHabit.name)
-                .join(UserHabitCheck, UserHabitCheck.habit_id == UserHabit.id)
-                .where(UserHabit.user_id == user_id, UserHabitCheck.is_completed.is_(True))
+        # Also include completed habit checks
+        habit_check_query = (
+            select(UserHabit.name, UserHabitCheck.check_date)
+            .join(UserHabitCheck, UserHabitCheck.habit_id == UserHabit.id)
+            .where(UserHabit.user_id == user_id, UserHabitCheck.is_completed.is_(True))
+        )
+        
+        # Apply period filter for habit checks
+        if period_start is not None:
+            habit_check_query = habit_check_query.where(
+                UserHabitCheck.check_date >= period_start.date()
             )
-        ).scalars().all()
-        for habit_name in completed_habit_names:
+        
+        completed_habits = (await db.execute(habit_check_query)).all()
+        for habit_name, _ in completed_habits:
             label = self._normalize_label(habit_name)
             if label:
                 counts[label] += 1

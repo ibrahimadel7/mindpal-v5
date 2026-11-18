@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import date
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db_session
@@ -23,6 +25,7 @@ from app.services.recommendation_service import RecommendationService
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 recommendation_service = RecommendationService()
+logger = logging.getLogger(__name__)
 
 
 def _item_response(item) -> RecommendationItemResponse:
@@ -62,7 +65,25 @@ async def get_today_recommendations(
     category: str = "balance",
     db: AsyncSession = Depends(get_db_session),
 ) -> RecommendationBatchResponse:
-    batch = await recommendation_service.get_or_create_today_batch(db, user_id=user_id, category=category)
+    try:
+        batch = await recommendation_service.get_or_create_today_batch(db, user_id=user_id, category=category)
+    except httpx.HTTPStatusError as exc:
+        logger.exception("Recommendations upstream request failed")
+        if exc.response.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="AI provider authentication failed. Check GROQ_API_KEY.",
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI provider is temporarily unavailable.",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Recommendations generation failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Recommendations are temporarily unavailable.",
+        ) from exc
     return _batch_response(batch)
 
 
@@ -71,7 +92,25 @@ async def generate_recommendations(
     payload: RecommendationGenerationRequest,
     db: AsyncSession = Depends(get_db_session),
 ) -> RecommendationBatchResponse:
-    batch = await recommendation_service.generate_batch(db, user_id=payload.user_id, category=payload.category)
+    try:
+        batch = await recommendation_service.generate_batch(db, user_id=payload.user_id, category=payload.category)
+    except httpx.HTTPStatusError as exc:
+        logger.exception("Recommendations upstream request failed")
+        if exc.response.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="AI provider authentication failed. Check GROQ_API_KEY.",
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI provider is temporarily unavailable.",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Recommendations generation failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Recommendations are temporarily unavailable.",
+        ) from exc
     return _batch_response(batch)
 
 

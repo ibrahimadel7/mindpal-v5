@@ -58,3 +58,12 @@ class HabitEmotionLinkInsight(BaseModel):
     co_occurrence: int
     habit_total: int
     link_strength: float
+
+
+class AIOverviewInsight(BaseModel):
+    """AI-generated personalized insight overview."""
+    greeting: str
+    current_feeling: str
+    emotion_summary: str
+    habit_summary: str
+    encouragement: str

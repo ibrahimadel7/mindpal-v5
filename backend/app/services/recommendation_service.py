@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, UTC
 import json
 from typing import Any
 
@@ -20,6 +20,10 @@ from app.models.user_habit import UserHabit
 from app.models.user_habit_check import UserHabitCheck
 from app.services.llm_service import LLMService
 from app.services.vector_service import VectorService
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -46,7 +50,7 @@ class RecommendationService:
         self.llm = llm_service or LLMService()
         self.analytics = analytics_service or TimePatternAnalytics()
         self.vector = vector_service or VectorService(self.llm)
-        self.now_provider = now_provider or datetime.utcnow
+        self.now_provider = now_provider or _utc_now
 
     async def get_or_create_today_batch(
         self,
