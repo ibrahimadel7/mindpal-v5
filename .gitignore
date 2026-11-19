@@ -47,7 +47,8 @@ worker/.dev.vars
 # Wrangler / Cloudflare build artifacts
 .wrangler/
 wrangler.jsonc
-frontend/wrangler.jsonc
+# frontend/wrangler.jsonc is intentionally tracked so Cloudflare Pages build
+# config (SPA fallback, vars, bindings) is version controlled.
 
 # Docker
 docker-compose.override.yml

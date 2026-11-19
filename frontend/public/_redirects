@@ -1,0 +1,5 @@
+# Cloudflare Pages SPA fallback
+# Serve index.html for all unmatched routes so React Router can handle
+# client-side navigation (e.g. /insights, /recommendations) on direct
+# access or page refresh.
+/*    /index.html   200
