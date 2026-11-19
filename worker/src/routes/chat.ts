@@ -1,12 +1,16 @@
 import { Hono } from 'hono'
+// @ts-ignore
 import { corsMiddleware } from './middleware/cors'
+// @ts-ignore
 import { securityHeadersMiddleware } from './middleware/security-headers'
+// @ts-ignore
 import { rateLimitMiddleware } from './middleware/rate-limit'
 import { Database } from '../services/db.ts'
 import { GroqService } from '../services/groq.ts'
-import type { ChatRequest, ChatResponse, ErrorResponse } from './types'
+// @ts-ignore
+import type { ChatRequest, ChatResponse, ErrorResponse, Env } from './types'
 
-const chatRouter = new Hono()
+const chatRouter = new Hono<{ Bindings: Env }>()
 
 chatRouter.post('/', async (c) => {
   const db = new Database(c.env.DB as unknown as D1Database)

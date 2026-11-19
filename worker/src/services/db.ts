@@ -59,7 +59,7 @@ export class Database {
   }
 
   async createMessage(
-    conversationId: number,
+    conversation_id: number,
     role: string,
     content: string
   ): Promise<Message> {
@@ -68,14 +68,14 @@ export class Database {
       .prepare(
         'INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?) RETURNING id, conversation_id, role, content, timestamp'
       )
-      .bind(conversationId, role, content, now)
+      .bind(conversation_id, role, content, now)
       .run()
 
     const meta = result.meta
     if (meta?.last_row_id) {
       return {
         id: meta.last_row_id,
-        conversationId,
+        conversation_id,
         role,
         content,
         timestamp: now,

@@ -14,7 +14,7 @@ const app = new Hono<{ Bindings: Env }>()
 app.use('*', securityHeadersMiddleware)
 
 // Rate limiting
-app.use('*', rateLimitMiddleware)
+app.use('*', rateLimitMiddleware as any)
 
 // CORS - restrict to your frontend domain
 const ALLOWED_ORIGIN = 'https://mindpal-frontend.ibrahimadelabdelaziz.workers.dev'

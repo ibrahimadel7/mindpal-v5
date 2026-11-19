@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { Database } from '../services/db'
-import type { Conversation } from '../types'
+import type { Conversation, Env } from '../types'
 
-const conversationsRouter = new Hono()
+const conversationsRouter = new Hono<{ Bindings: Env }>()
 
 conversationsRouter.get('/', async (c) => {
   const db = new Database(c.env.DB as unknown as D1Database)
