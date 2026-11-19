@@ -30,10 +30,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-        working-directory: ${{ env.FRONTEND_DIR }}
 
       - name: Lint frontend
-        working-directory: ${{ env.FRONTEND_DIR }}
+        working-directory: frontend
         run: |
           npm ci
           npm run lint
@@ -89,10 +88,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-        working-directory: ${{ env.FRONTEND_DIR }}
 
       - name: Install dependencies
-        working-directory: ${{ env.FRONTEND_DIR }}
+        working-directory: frontend
         run: npm ci
 
       - name: Build frontend
