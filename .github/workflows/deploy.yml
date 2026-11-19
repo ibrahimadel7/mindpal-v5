@@ -30,7 +30,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
         working-directory: ${{ env.FRONTEND_DIR }}
 
       - name: Lint frontend
