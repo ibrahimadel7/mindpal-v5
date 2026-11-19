@@ -1,0 +1,21 @@
+name = "mindpal-backend"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mindpal-db"
+database_id = "92516aa4-9164-41db-b3b4-956e03a9011c"
+
+[vars]
+FIREBASE_PROJECT_ID = ""
+GROQ_MODEL = "openai/gpt-oss-20b"
+GROQ_EMBEDDING_MODEL = "text-embedding-3-large"
+LLM_TEMPERATURE = "0.4"
+LLM_MAX_TOKENS = "700"
+LLM_TIMEOUT_SECONDS = "60"
+LLM_MAX_RETRIES = "3"
+ENVIRONMENT = "production"
+
+[observability]
+enabled = true

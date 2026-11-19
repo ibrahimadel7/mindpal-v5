@@ -31,11 +31,26 @@ coverage/
 .env
 .env.local
 .env.*.local
+.env.prod
+.env.production
+.env.development
 !.env.example
 *.pem
 *.key
 *.crt
 *.p12
+
+# Worker secrets
+.dev.vars
+worker/.dev.vars
+
+# Wrangler / Cloudflare build artifacts
+.wrangler/
+wrangler.jsonc
+frontend/wrangler.jsonc
+
+# Docker
+docker-compose.override.yml
 
 # IDE & Editor
 .vscode/
@@ -70,4 +85,3 @@ poetry.lock
 Pipfile.lock
 #design
 AppDesign/
-.github/

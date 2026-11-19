@@ -1,0 +1,20 @@
+# Cloudflare Workers Backend
+# This directory contains the TypeScript Worker code for MindPal backend API
+# Deployed via: wrangler deploy
+
+# Local development variables (gitignored)
+.dev.vars
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.wrangler/
+
+# Logs
+*.log
+logs/
+
+# TypeScript
+*.tsbuildinfo

@@ -1,0 +1,22 @@
+{
+  "name": "mindpal-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "d1:create": "wrangler d1 create mindpal-db",
+    "d1:execute-local": "wrangler d1 execute mindpal-db --local --file=./migrations/001_initial.sql",
+    "d1:execute-remote": "wrangler d1 execute mindpal-db --remote --file=./migrations/001_initial.sql"
+  },
+  "dependencies": {
+    "hono": "^4.5.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  }
+}

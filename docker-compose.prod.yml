@@ -1,0 +1,57 @@
+# Production docker-compose override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Secrets: use Docker secrets or pass --env-file with a production .env (never commit)
+
+version: "3.8"
+
+services:
+  backend:
+    image: ghcr.io/ibrahimadel7/mindpal-backend:latest
+    env_file:
+      - ./backend/.env.prod
+    ports:
+      - "127.0.0.1:8000:8000"   # bind only to localhost; expose via reverse proxy
+    networks:
+      - mindpal
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50m
+      - /app/chroma_data:noexec,nosuid,size=100m
+    volumes:
+      - mindpal-chroma-data:/app/chroma_data
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  frontend:
+    image: ghcr.io/ibrahimadel7/mindpal-frontend:latest
+    environment:
+      - VITE_API_BASE_URL=https://api.mindpal.example.com   # set to your production backend URL
+    ports:
+      - "127.0.0.1:80:80"   # bind only to localhost; expose via reverse proxy
+    networks:
+      - mindpal
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+networks:
+  mindpal:
+    driver: bridge
+
+volumes:
+  mindpal-chroma-data:
+    driver: local

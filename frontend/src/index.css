@@ -68,4 +68,45 @@ body {
   .subtle-icon-button {
     @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-clay-200/85 bg-white/90 text-ink-700/85 transition-colors duration-200 hover:border-clay-300 hover:bg-white hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-300 focus-visible:ring-offset-2;
   }
+
+  /* Markdown styles for assistant messages */
+  .markdown-content h1 {
+    @apply text-2xl font-bold text-ink-900 mt-6 mb-3;
+  }
+  .markdown-content h2 {
+    @apply text-xl font-bold text-ink-900 mt-5 mb-2;
+  }
+  .markdown-content h3 {
+    @apply text-lg font-bold text-ink-900 mt-4 mb-2;
+  }
+  .markdown-content p {
+    @apply mb-3 break-words whitespace-pre-wrap text-base leading-relaxed;
+  }
+  .markdown-content ul,
+  .markdown-content ol {
+    @apply mb-3 pl-5 text-base leading-relaxed;
+  }
+  .markdown-content li {
+    @apply mb-1;
+  }
+  .markdown-content blockquote {
+    @apply border-l-2 border-clay-300 pl-4 my-3 italic text-ink-700;
+  }
+  .markdown-content code {
+    @apply bg-clay-100 px-1.5 py-0.5 rounded text-sm font-mono text-ink-900;
+  }
+  .markdown-content pre code {
+    @apply block p-3 my-3 text-sm font-mono text-ink-900 overflow-x-auto;
+  }
+  .markdown-content strong,
+  .markdown-content b {
+    @apply font-bold;
+  }
+  .markdown-content em,
+  .markdown-content i {
+    @apply italic;
+  }
+  .markdown-content hr {
+    @apply border-clay-200 my-4;
+  }
 }

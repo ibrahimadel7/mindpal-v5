@@ -1,13 +1,13 @@
 import 'package:flutter/foundation.dart';
 
-const String kBaseUrl = 'http://localhost:8000';
+const String kBaseUrl = 'https://mindpal-backend.ibrahimadelabdelaziz.workers.dev';
 const int kUserId = 1;
 
 // For physical Android/iOS devices, use your computer's local network IP
 // Your current local IP: 192.168.100.3
 // To find it again: `ip a` (Linux) or `ipconfig` (Windows)
-const String kPhysicalDeviceUrl = 'http://192.168.100.3:8000';
-const String kEmulatorUrl = 'http://10.0.2.2:8000'; // Android emulator only
+const String kPhysicalDeviceUrl = 'https://mindpal-backend.ibrahimadelabdelaziz.workers.dev';
+const String kEmulatorUrl = 'https://mindpal-backend.ibrahimadelabdelaziz.workers.dev'; // Android emulator only
 
 String get resolvedBaseUrl {
   if (kIsWeb) {

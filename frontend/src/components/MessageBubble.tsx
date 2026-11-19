@@ -1,4 +1,6 @@
 import type { Message } from '../types/api'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface MessageBubbleProps {
   message: Message
@@ -10,6 +12,29 @@ export default function MessageBubble({ message, isStreaming = false, thinkingLa
   const isUser = message.role === 'user'
   const timeLabel = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const showThinking = !isUser && isStreaming && message.content.trim().length === 0
+
+  // Render markdown for assistant messages when not streaming (partial markdown during streaming can break)
+  const renderContent = () => {
+    if (isUser || isStreaming) {
+      return message.content
+    }
+    return (
+      <div className="markdown-content">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            p: ({ children, ...props }) => (
+              <p className="break-words whitespace-pre-wrap text-base leading-relaxed" {...props}>
+                {children}
+              </p>
+            ),
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+      </div>
+    )
+  }
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -27,10 +52,14 @@ export default function MessageBubble({ message, isStreaming = false, thinkingLa
               : 'rounded-bl-md border border-clay-200 bg-white text-ink-900'
           }`}
         >
-          <p className="break-words whitespace-pre-wrap text-base leading-relaxed">
-            {showThinking ? thinkingLabel ?? 'Thinking...' : message.content}
-            {isStreaming && !showThinking ? <span className="ml-0.5 inline-block animate-pulse">|</span> : null}
-          </p>
+          {isUser || isStreaming ? (
+            <p className="break-words whitespace-pre-wrap text-base leading-relaxed">
+              {showThinking ? thinkingLabel ?? 'Thinking...' : message.content}
+              {isStreaming && !showThinking ? <span className="ml-0.5 inline-block animate-pulse">|</span> : null}
+            </p>
+          ) : (
+            renderContent()
+          )}
           <p className={`mt-2 text-xs ${isUser ? 'text-ink-700/75' : 'text-ink-700/65'}`}>{timeLabel}</p>
         </article>
       </div>
